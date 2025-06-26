@@ -1,0 +1,14 @@
+/Users/alexbond/VKR/MerchShop/MerchShop.Core/obj/Debug/net8.0/MerchShop.Core.csproj.AssemblyReference.cache
+/Users/alexbond/VKR/MerchShop/MerchShop.Core/obj/Debug/net8.0/MerchShop.Core.GeneratedMSBuildEditorConfig.editorconfig
+/Users/alexbond/VKR/MerchShop/MerchShop.Core/obj/Debug/net8.0/MerchShop.Core.AssemblyInfoInputs.cache
+/Users/alexbond/VKR/MerchShop/MerchShop.Core/obj/Debug/net8.0/MerchShop.Core.AssemblyInfo.cs
+/Users/alexbond/VKR/MerchShop/MerchShop.Core/obj/Debug/net8.0/MerchShop.Core.csproj.CoreCompileInputs.cache
+/Users/alexbond/VKR/MerchShop/MerchShop.Core/bin/Debug/net8.0/MerchShop.Core.deps.json
+/Users/alexbond/VKR/MerchShop/MerchShop.Core/bin/Debug/net8.0/MerchShop.Core.runtimeconfig.json
+/Users/alexbond/VKR/MerchShop/MerchShop.Core/bin/Debug/net8.0/MerchShop.Core.dll
+/Users/alexbond/VKR/MerchShop/MerchShop.Core/bin/Debug/net8.0/MerchShop.Core.pdb
+/Users/alexbond/VKR/MerchShop/MerchShop.Core/obj/Debug/net8.0/MerchShop.Core.dll
+/Users/alexbond/VKR/MerchShop/MerchShop.Core/obj/Debug/net8.0/refint/MerchShop.Core.dll
+/Users/alexbond/VKR/MerchShop/MerchShop.Core/obj/Debug/net8.0/MerchShop.Core.pdb
+/Users/alexbond/VKR/MerchShop/MerchShop.Core/obj/Debug/net8.0/MerchShop.Core.genruntimeconfig.cache
+/Users/alexbond/VKR/MerchShop/MerchShop.Core/obj/Debug/net8.0/ref/MerchShop.Core.dll

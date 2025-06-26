@@ -1,0 +1,6 @@
+@MerchShop.WebAPI_HostAddress = http://localhost:5062
+
+GET {{MerchShop.WebAPI_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
