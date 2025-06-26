@@ -1,0 +1,57 @@
+# Visual Studio / Rider
+.vs/
+.idea/
+*.user
+*.suo
+*.sln.docstates
+*.resharper
+_ReSharper.*/
+*.DotSettings
+*.userprefs
+
+# Build artifacts
+**/bin/
+**/obj/
+
+# NuGet
+*.nuget.log
+packages/
+# NuGet tools (e.g., dotnet-ef global tool cache)
+.nuget/
+
+# npm / Node.js
+**/node_modules/
+npm-debug.log
+yarn-debug.log
+.yarn/
+.pnp.js
+.pnp.cjs
+.eslintcache
+
+# React production build output
+# Assuming clientapp/build will be the output directory for React
+clientapp/build/
+clientapp/coverage/
+
+# ASP.NET Core specific files
+appsettings*.json # Often contains local/sensitive settings (e.g., appsettings.Development.json)
+Properties/launchSettings.json # Local launch configurations
+*.pdb # Program Database files (debugging symbols)
+*.log
+logs/
+
+# Test results
+TestResults/
+
+# Generated files
+*.tmp
+*.bak
+*.swp
+*.~
+*.scc
+
+# macOS specific files
+.DS_Store
+
+# Cross-platform / IDE specific
+*.code-workspace
