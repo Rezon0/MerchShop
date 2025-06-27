@@ -446,15 +446,20 @@ const App = () => {
         setShowAuthModal(true);
     };
 
-    const addToCart = (product) => {
+/////////
+
+const addToCart = (product) => {
         setCartItems(prevItems => {
-            const existingItem = prevItems.find(item => item.id === product.id);
+            // Корректно ищем существующий товар по ID продукта
+            const existingItem = prevItems.find(item => item.product.id === product.id);
             if (existingItem) {
+                // Если товар уже есть, увеличиваем его количество
                 return prevItems.map(item =>
-                    item.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
+                    item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
                 );
             } else {
-                return [...prevItems, { product: product, quantity: 1 }]; // Store product object inside cart item
+                // Если товара нет, добавляем его в корзину
+                return [...prevItems, { product: product, quantity: 1 }];
             }
         });
         alert(`${product.name} добавлен в корзину!`);
