@@ -1,6 +1,6 @@
-// MerchApi/Models/ProductDesign.cs
+// MerchShop.Core.Models/ProductDesign.cs
 using System.ComponentModel.DataAnnotations;
-using System.Collections.Generic; // Для ICollection<Cart> и ICollection<ProductDesignOrder>
+using System.Collections.Generic;
 
 namespace MerchShop.Core.Models
 {
@@ -25,10 +25,18 @@ namespace MerchShop.Core.Models
         public int CoordinateY { get; set; }
 
         // Соответствует "Доступность"
-        public bool IsAvailable { get; set; } // Переименовано для ясности
+        public bool IsAvailable { get; set; }
 
-        // Навигационное свойство для связи "один ко многим" с Cart
-        public ICollection<CartItem> CartItems { get; set; } = new List<CartItem>(); // Изменено на CartItem
+        [Required]
+        // Цена элемента на момент добавления в корзину/заказ
+        public decimal PriceAtOrder { get; set; }
+
+        [Required]
+        // Количество данного товара-дизайна
+        public int Quantity { get; set; }
+
+        // Навигационное свойство для связи "один ко многим" с CartItem
+        public ICollection<CartItem> CartItems { get; set; } = new List<CartItem>();
 
         // Навигационное свойство для связи "один ко многим" с ProductDesignOrder
         public ICollection<ProductDesignOrder> ProductDesignOrders { get; set; } = new List<ProductDesignOrder>();
