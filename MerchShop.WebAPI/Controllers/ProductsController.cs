@@ -2,7 +2,7 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using MerchShop.Core.Data;   // Для ApplicationDbContext
-using MerchShop.Core.Models; // Для модели Product
+using MerchShop.Core.Models; // Для модели Product, ProductDesign, Design
 
 namespace MerchShop.WebAPI.Controllers
 {
@@ -12,29 +12,38 @@ namespace MerchShop.WebAPI.Controllers
     {
         private readonly ApplicationDbContext _context;
 
-        // Конструктор: ApplicationDbContext внедряется через Dependency Injection
+        // Конструктор: внедряем ApplicationDbContext через DI
         public ProductsController(ApplicationDbContext context)
         {
             _context = context;
         }
 
         // GET: api/Products
-        // Этот эндпоинт будет возвращать список всех товаров.
+        // Этот эндпоинт будет возвращать список всех товаров,
+        // включая их ProductDesigns и связанные Designs для изображений.
         [HttpGet]
         public async Task<ActionResult<IEnumerable<Product>>> GetProducts()
         {
-            // Используем _context для доступа к DbSet<Product> и асинхронно получаем все товары из БД
-            // Проект MerchShop.Core должен быть скомпилирован без ошибок для корректной работы
-            return await _context.Products.ToListAsync();
+            // Используем _context для доступа к DbSet<Product>
+            // Включаем (Include) связанные ProductDesigns
+            // Затем включаем (ThenInclude) связанные Designs для получения ImageUrl
+            return await _context.Products
+                                 .Include(p => p.ProductDesigns)
+                                     .ThenInclude(pd => pd.Design)
+                                 .ToListAsync();
         }
 
         // GET: api/Products/5
-        // Этот эндпоинт будет возвращать один товар по его ID.
+        // Этот эндпоинт будет возвращать один товар по его ID,
+        // также включая ProductDesigns и Designs.
         [HttpGet("{id}")]
         public async Task<ActionResult<Product>> GetProduct(int id)
         {
-            // Ищем товар по ID в базе данных
-            var product = await _context.Products.FindAsync(id);
+            // Ищем товар по ID в базе данных, включая ProductDesigns и Designs
+            var product = await _context.Products
+                                        .Include(p => p.ProductDesigns)
+                                            .ThenInclude(pd => pd.Design)
+                                        .FirstOrDefaultAsync(p => p.Id == id);
 
             if (product == null)
             {
@@ -46,23 +55,29 @@ namespace MerchShop.WebAPI.Controllers
             return product;
         }
 
-        // В будущем здесь можно добавить методы POST, PUT, DELETE для управления товарами
-        /*
-        // POST: api/Products
-        // Добавление нового товара
+        // POST api/Products
+        // Добавление нового товара в базу данных
         [HttpPost]
         public async Task<ActionResult<Product>> PostProduct(Product product)
         {
+            // Поскольку дизайн товара может быть связан после создания,
+            // или мы ожидаем, что ProductDesign будет добавлен отдельно,
+            // здесь просто добавляем Product.
+            // Если ProductDesigns передаются в теле запроса POST, EF Core
+            // может автоматически добавить их, если они правильно сформированы.
             _context.Products.Add(product);
             await _context.SaveChangesAsync();
-            // Возвращаем 201 CreatedAtAction с URL нового ресурса
+
+            // Возвращаем ответ 201 CreatedAtAction, который указывает URL нового ресурса
             return CreatedAtAction(nameof(GetProduct), new { id = product.Id }, product);
         }
 
+        // Примеры методов PUT и DELETE, которые можно раскомментировать и реализовать:
+        /*
         // PUT: api/Products/5
         // Обновление существующего товара
         [HttpPut("{id}")]
-        public async Task<IActionResult> PutProduct(int id, Product product)
+        public async Task<IActionResult> PutProduct(int int id, Product product)
         {
             if (id != product.Id)
             {
