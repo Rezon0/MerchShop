@@ -71,59 +71,5 @@ namespace MerchShop.WebAPI.Controllers
             // Возвращаем ответ 201 CreatedAtAction, который указывает URL нового ресурса
             return CreatedAtAction(nameof(GetProduct), new { id = product.Id }, product);
         }
-
-        // Примеры методов PUT и DELETE, которые можно раскомментировать и реализовать:
-        /*
-        // PUT: api/Products/5
-        // Обновление существующего товара
-        [HttpPut("{id}")]
-        public async Task<IActionResult> PutProduct(int int id, Product product)
-        {
-            if (id != product.Id)
-            {
-                return BadRequest(); // ID в маршруте не совпадает с ID в теле запроса
-            }
-
-            _context.Entry(product).State = EntityState.Modified;
-
-            try
-            {
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateConcurrencyException)
-            {
-                if (!ProductExists(id))
-                {
-                    return NotFound();
-                }
-                else
-                {
-                    throw;
-                }
-            }
-            return NoContent(); // 204 No Content - успешно, но без возврата тела
-        }
-
-        // DELETE: api/Products/5
-        // Удаление товара
-        [HttpDelete("{id}")]
-        public async Task<IActionResult> DeleteProduct(int id)
-        {
-            var product = await _context.Products.FindAsync(id);
-            if (product == null)
-            {
-                return NotFound();
-            }
-
-            _context.Products.Remove(product);
-            await _context.SaveChangesAsync();
-            return NoContent(); // 204 No Content
-        }
-
-        private bool ProductExists(int id)
-        {
-            return _context.Products.Any(e => e.Id == id);
-        }
-        */
     }
 }
