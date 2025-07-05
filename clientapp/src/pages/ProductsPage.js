@@ -1,7 +1,11 @@
 import React from 'react';
-import ProductCard from '../components/ProductCard'; // Импортируем новый компонент
+import { useNavigate } from 'react-router-dom'; // Импортируем useNavigate из react-router-dom
+import ProductCard from '../components/ProductCard'; // Импортируем компонент ProductCard
 
-const ProductsPage = ({ navigateTo, addToCart, products, searchTerm }) => {
+const ProductsPage = ({ addToCart, products, searchTerm }) => {
+    // Используем хук useNavigate для программной навигации
+    const navigate = useNavigate();
+
     const filteredProducts = Array.isArray(products) ? products.filter(product =>
         product.name.toLowerCase().includes(searchTerm.toLowerCase())
     ) : [];
@@ -24,7 +28,7 @@ const ProductsPage = ({ navigateTo, addToCart, products, searchTerm }) => {
                             <ProductCard
                                 key={product.id}
                                 product={product}
-                                navigateTo={navigateTo}
+                                navigateTo={navigate} // Передаем функцию navigate из react-router-dom
                                 addToCart={addToCart}
                             />
                         ))}
