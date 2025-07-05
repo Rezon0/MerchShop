@@ -1,0 +1,41 @@
+import React from 'react';
+
+const AuthModal = ({ show, onClose, navigateTo }) => {
+    if (!show) return null;
+
+    return (
+        <div className="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg shadow-xl p-8 max-w-sm w-full relative transform transition-all duration-300 scale-95 opacity-0 animate-scaleIn">
+                <button
+                    onClick={onClose}
+                    className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 text-2xl font-bold focus:outline-none"
+                    aria-label="Close"
+                >
+                    &times;
+                </button>
+                <h3 className="text-2xl font-bold text-gray-800 mb-6 text-center">
+                    Вход или Регистрация
+                </h3>
+                <p className="text-gray-600 text-center mb-8">
+                    Чтобы получить доступ к функциям профиля, пожалуйста, войдите или создайте новую учетную запись.
+                </p>
+                <div className="flex flex-col space-y-4">
+                    <button
+                        onClick={() => { navigateTo('login'); onClose(); }}
+                        className="bg-indigo-600 text-white font-bold py-3 px-6 rounded-full hover:bg-indigo-700 transition duration-300 ease-in-out focus:outline-none focus:ring-4 focus:ring-indigo-500 focus:ring-opacity-70"
+                    >
+                        Войти
+                    </button>
+                    <button
+                        onClick={() => { navigateTo('register'); onClose(); }}
+                        className="bg-gray-200 text-gray-800 font-bold py-3 px-6 rounded-full hover:bg-gray-300 transition duration-300 ease-in-out focus:outline-none focus:ring-4 focus:ring-gray-400 focus:ring-opacity-70"
+                    >
+                        Зарегистрироваться
+                    </button>
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default AuthModal;
