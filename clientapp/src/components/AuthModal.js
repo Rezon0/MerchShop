@@ -1,11 +1,29 @@
-import React from 'react';
+// src/components/AuthModal.js
+import React, { useEffect } from 'react';
 
 const AuthModal = ({ show, onClose, navigateTo }) => {
-    if (!show) return null;
+    // Этот useEffect будет срабатывать при каждом рендере компонента AuthModal и изменении пропса 'show'
+    useEffect(() => {
+        if (show) {
+            console.log('AuthModal: Компонент отображается (show = true)');
+        } else {
+            console.log('AuthModal: Компонент скрыт (show = false)');
+        }
+    }, [show]); // Запускается при изменении пропса 'show'
+
+    if (!show) {
+        // Если show = false, компонент не рендерит ничего
+        return null;
+    }
+
+    // Если мы дошли сюда, значит show = true, и модальное окно должно быть видно
+    console.log('AuthModal: Модальное окно активно и пытается отобразиться на экране.');
 
     return (
         <div className="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 p-4">
-            <div className="bg-white rounded-lg shadow-xl p-8 max-w-sm w-full relative transform transition-all duration-300 scale-95 opacity-0 animate-scaleIn">
+            {/* ВРЕМЕННО: Убран класс animate-scaleIn для отладки видимости */}
+            {/* Добавлен явный фон к внутреннему модальному окну для гарантированной видимости */}
+            <div className="bg-white rounded-lg shadow-xl p-8 max-w-sm w-full relative transform transition-all duration-300">
                 <button
                     onClick={onClose}
                     className="absolute top-3 right-3 text-gray-400 hover:text-gray-600 text-2xl font-bold focus:outline-none"
@@ -21,13 +39,13 @@ const AuthModal = ({ show, onClose, navigateTo }) => {
                 </p>
                 <div className="flex flex-col space-y-4">
                     <button
-                        onClick={() => { navigateTo('login'); onClose(); }}
+                        onClick={() => { navigateTo('/login'); onClose(); }}
                         className="bg-indigo-600 text-white font-bold py-3 px-6 rounded-full hover:bg-indigo-700 transition duration-300 ease-in-out focus:outline-none focus:ring-4 focus:ring-indigo-500 focus:ring-opacity-70"
                     >
                         Войти
                     </button>
                     <button
-                        onClick={() => { navigateTo('register'); onClose(); }}
+                        onClick={() => { navigateTo('/register'); onClose(); }}
                         className="bg-gray-200 text-gray-800 font-bold py-3 px-6 rounded-full hover:bg-gray-300 transition duration-300 ease-in-out focus:outline-none focus:ring-4 focus:ring-gray-400 focus:ring-opacity-70"
                     >
                         Зарегистрироваться
