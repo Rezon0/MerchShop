@@ -1,14 +1,13 @@
-// MerchApi/Models/User.cs
+// MerchShop.Core/Models/User.cs
+using System;
 using System.ComponentModel.DataAnnotations;
 using System.Collections.Generic;
-using System; // Для DateTime
 
 namespace MerchShop.Core.Models
 {
-    // Пользователь
     public class User
     {
-public int Id { get; set; }
+        public int Id { get; set; }
 
         [Required]
         [MaxLength(100)]
@@ -19,10 +18,11 @@ public int Id { get; set; }
         public string FirstName { get; set; }
 
         [MaxLength(100)]
-        public string MiddleName { get; set; } // Nullable
+        public string MiddleName { get; set; }
 
         [Required]
-        public DateOnly DateOfBirth { get; set; }
+        // ИЗМЕНЕНО: Меняем DateOnly на DateTime
+        public DateTime DateOfBirth { get; set; }
 
         [Required]
         [MaxLength(16)]
@@ -36,13 +36,18 @@ public int Id { get; set; }
         [Required]
         public bool GdprConsent { get; set; }
 
-        // Добавляем поле для хешированного пароля
         [Required]
-        [MaxLength(255)] // Длина хеша может варьироваться, 255 обычно достаточно
+        [MaxLength(255)]
         public string PasswordHash { get; set; }
 
+        // Поля для Refresh Token
+        [MaxLength(255)]
+        public string? RefreshToken { get; set; }
+
+        public DateTime? RefreshTokenExpiryTime { get; set; }
+
         // Навигационные свойства
-        public ICollection<Order> Orders { get; set; }
-        public ICollection<CartItem> CartItems { get; set; }
+        public ICollection<Order> Orders { get; set; } = new List<Order>();
+        public ICollection<CartItem> CartItems { get; set; } = new List<CartItem>();
     }
 }
