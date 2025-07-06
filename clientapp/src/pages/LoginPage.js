@@ -1,25 +1,54 @@
+// src/pages/LoginPage.js
 import React, { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
 const LoginPage = ({ navigateTo }) => {
-    const [email, setEmail] = useState('');
-    const [password, setPassword] = useState('');
+    const navigate = useNavigate();
+    const [formData, setFormData] = useState({
+        email: '',
+        password: '',
+    });
     const [error, setError] = useState('');
+    const [success, setSuccess] = useState('');
 
-    const handleSubmit = (e) => {
+    const handleChange = (e) => {
+        const { name, value } = e.target;
+        setFormData({
+            ...formData,
+            [name]: value,
+        });
+    };
+
+    const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
-        // Простая валидация на стороне клиента
-        if (!email || !password) {
-            setError('Пожалуйста, введите email и пароль.');
-            return;
+        setSuccess('');
+
+        try {
+            const response = await axios.post('https://localhost:7232/api/Auth/login', formData);
+            setSuccess(response.data.message);
+
+            // Сохраняем токены в localStorage
+            localStorage.setItem('accessToken', response.data.accessToken);
+            localStorage.setItem('refreshToken', response.data.refreshToken);
+            localStorage.setItem('userId', response.data.userId);
+            localStorage.setItem('userName', response.data.userName);
+
+            // Перенаправляем пользователя на страницу профиля или главную
+            setTimeout(() => {
+                navigate('/home'); // Или '/products'
+                window.location.reload(); // Перезагружаем, чтобы App.js обновил состояние авторизации
+            }, 1000);
+
+        } catch (err) {
+            console.error('Ошибка входа:', err.response || err);
+            if (err.response && err.response.data && err.response.data.message) {
+                setError(err.response.data.message);
+            } else {
+                setError('Не удалось войти. Проверьте Email и пароль.');
+            }
         }
-        console.log('Попытка входа:', { email, password });
-        // Здесь будет логика отправки данных на ваш ASP.NET Backend
-        // Временно симулируем успешный вход
-        setTimeout(() => {
-            alert('Вход успешен (демо)!');
-            navigateTo('home'); // Перенаправляем на страницу профиля или товаров после входа
-        }, 1000);
     };
 
     return (
@@ -31,6 +60,11 @@ const LoginPage = ({ navigateTo }) => {
                         <span className="block sm:inline">{error}</span>
                     </div>
                 )}
+                {success && (
+                    <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-6" role="alert">
+                        <span className="block sm:inline">{success}</span>
+                    </div>
+                )}
                 <form onSubmit={handleSubmit} className="space-y-6">
                     <div>
                         <label htmlFor="email" className="block text-gray-700 text-sm font-bold mb-2">
@@ -39,8 +73,9 @@ const LoginPage = ({ navigateTo }) => {
                         <input
                             type="email"
                             id="email"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
+                            name="email"
+                            value={formData.email}
+                            onChange={handleChange}
                             className="shadow appearance-none border rounded w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
                             placeholder="Ваш Email"
                             required
@@ -53,8 +88,9 @@ const LoginPage = ({ navigateTo }) => {
                         <input
                             type="password"
                             id="password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
+                            name="password"
+                            value={formData.password}
+                            onChange={handleChange}
                             className="shadow appearance-none border rounded w-full py-3 px-4 text-gray-700 mb-3 leading-tight focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
                             placeholder="Ваш Пароль"
                             required
@@ -70,7 +106,7 @@ const LoginPage = ({ navigateTo }) => {
                 <p className="mt-8 text-center text-gray-600">
                     Нет аккаунта?{' '}
                     <button
-                        onClick={() => navigateTo('register')}
+                        onClick={() => navigate('/register')}
                         className="text-indigo-600 hover:text-indigo-800 font-semibold focus:outline-none"
                     >
                         Зарегистрироваться
