@@ -2,9 +2,8 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
-const Header = ({ navigateTo, cartItems, searchTerm, setSearchTerm, onProfileClick, showAuthModal }) => {
+const Header = ({ navigateTo, cartItems, searchTerm, setSearchTerm, onProfileClick, showAuthModal, isLoggedIn, currentUserName, onLogout }) => {
     const location = useLocation();
-
     const isActive = (path) => location.pathname === path;
 
     return (
@@ -13,7 +12,6 @@ const Header = ({ navigateTo, cartItems, searchTerm, setSearchTerm, onProfileCli
                 <h1 className="text-3xl font-bold text-indigo-300">
                     Merch Shop
                 </h1>
-                {/* Search field */}
                 <div className="flex-grow flex justify-center px-4 sm:px-0">
                     <input
                         type="text"
@@ -52,17 +50,42 @@ const Header = ({ navigateTo, cartItems, searchTerm, setSearchTerm, onProfileCli
                             </Link>
                         </li>
                         <li>
-                            <button
-                                onClick={() => {
-                                    console.log('Кнопка "Профиль" нажата в Header!'); // DEBUG LOG
-                                    onProfileClick(); // Вызываем переданный пропс
-                                }}
-                                className={`px-3 py-2 rounded-lg transition-colors duration-200
-                                    ${showAuthModal || isActive('/login') || isActive('/register') || isActive('/home') ? 'bg-indigo-700 text-white' : 'hover:bg-gray-700'}
-                                    focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50`}
-                            >
-                                Профиль
-                            </button>
+                            {isLoggedIn ? (
+                                <div className="relative group">
+                                    <button
+                                        onClick={() => navigateTo('/profile')} // Переход на страницу профиля
+                                        className={`px-3 py-2 rounded-lg transition-colors duration-200
+                                            ${isActive('/profile') ? 'bg-indigo-700 text-white' : 'hover:bg-gray-700'}
+                                            focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50`}
+                                    >
+                                        Привет, {currentUserName}!
+                                    </button>
+                                    {/* Пример выпадающего меню для авторизованного пользователя */}
+                                    <div className="absolute right-0 mt-2 w-48 bg-gray-700 rounded-md shadow-lg py-1 z-10 opacity-0 group-hover:opacity-100 group-hover:translate-y-0 translate-y-2 transition-all duration-200 ease-out">
+                                        <button
+                                            onClick={() => { navigateTo('/profile'); }}
+                                            className="block px-4 py-2 text-sm text-white hover:bg-gray-600 w-full text-left"
+                                        >
+                                            Мой профиль
+                                        </button>
+                                        <button
+                                            onClick={onLogout}
+                                            className="block px-4 py-2 text-sm text-red-300 hover:bg-gray-600 w-full text-left"
+                                        >
+                                            Выйти
+                                        </button>
+                                    </div>
+                                </div>
+                            ) : (
+                                <button
+                                    onClick={onProfileClick} // Открывает модальное окно для входа/регистрации
+                                    className={`px-3 py-2 rounded-lg transition-colors duration-200
+                                        ${showAuthModal || isActive('/login') || isActive('/register') ? 'bg-indigo-700 text-white' : 'hover:bg-gray-700'}
+                                        focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50`}
+                                >
+                                    Профиль
+                                </button>
+                            )}
                         </li>
                     </ul>
                 </nav>
