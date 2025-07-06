@@ -19,10 +19,8 @@ namespace MerchShop.WebAPI.DTOs
 
         [Required(ErrorMessage = "Дата рождения обязательна.")]
         [DataType(DataType.Date)]
-        // Если DateOnly вызывает проблемы с десериализацией из строки "YYYY-MM-DD",
-        // можно временно попробовать использовать DateTime и позже преобразовать
-        // public DateTime DateOfBirth { get; set; }
-        public DateOnly DateOfBirth { get; set; }
+        // ИЗМЕНЕНО: Меняем DateOnly на DateTime, чтобы соответствовать модели User
+        public DateTime DateOfBirth { get; set; }
 
 
         [Required(ErrorMessage = "Телефон обязателен.")]
@@ -38,11 +36,8 @@ namespace MerchShop.WebAPI.DTOs
         [Required(ErrorMessage = "Согласие с GDPR обязательно.")]
         public bool GdprConsent { get; set; }
 
-        // ЭТО ПОЛЕ, КОТОРОЕ ВЫЗЫВАЕТ ПРОБЛЕМУ
         [Required(ErrorMessage = "Пароль обязателен.")]
-        [MinLength(6, ErrorMessage = "Пароль должен быть не менее 6 символов.")] // Пример минимальной длины
-        // Возможно, здесь есть конфликт, если имя свойства не 'Password'
-        // Убедитесь, что имя свойства точно 'Password'
+        [MinLength(6, ErrorMessage = "Пароль должен быть не менее 6 символов.")]
         public string Password { get; set; }
 
         [Required(ErrorMessage = "Подтверждение пароля обязательно.")]
