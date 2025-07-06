@@ -1,30 +1,26 @@
 // MerchShop.WebAPI/Program.cs
-
-// Добавьте эти using директивы
-using MerchShop.Core.Data; // Для ApplicationDbContext
-using Microsoft.EntityFrameworkCore; // Для UseNpgsql, Migrate
-using Npgsql.EntityFrameworkCore.PostgreSQL; // Явно для провайдера Npgsql
-using System.Text.Json.Serialization; // Добавлено для ReferenceHandler.Preserve
-// Также убедитесь, что у вас есть эти для SPA, если они были ранее
-// using Microsoft.AspNetCore.SpaServices.ReactDevelopmentServer;
-// using Microsoft.AspNetCore.SpaServices.StaticFiles;
-
+using MerchShop.Core.Data;
+using MerchShop.WebAPI.Services; // Добавьте эту директиву
+using Microsoft.EntityFrameworkCore;
+using Microsoft.AspNetCore.Authentication.JwtBearer; // Добавьте эту директиву
+using Microsoft.IdentityModel.Tokens; // Добавьте эту директиву
+using System.Text;
+using System.Text.Json.Serialization;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // Добавляем службы в контейнер.
 
-// Настройка CORS (Cross-Origin Resource Sharing)
-// Это позволит вашему React-приложению (на другом порту) обращаться к этому API
+// Настройка CORS
 builder.Services.AddCors(options =>
 {
     options.AddDefaultPolicy(
         policy =>
         {
-            policy.WithOrigins("http://localhost:3000", // Порт, на котором обычно работает React Dev Server
-                               "https://localhost:3000")
+            policy.WithOrigins("http://localhost:3000") // React Dev Server
                   .AllowAnyHeader()
-                  .AllowAnyMethod();
+                  .AllowAnyMethod()
+                  .AllowCredentials(); // Важно для куки, если будете использовать HttpOnly куки для refresh токена
         });
 });
 
@@ -37,20 +33,50 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 // ===============================================================
+// НАСТРОЙКА JWT АУТЕНТИФИКАЦИИ
+// ===============================================================
+builder.Services.AddAuthentication(options =>
+{
+    options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+    options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+}).AddJwtBearer(options =>
+{
+    options.TokenValidationParameters = new TokenValidationParameters
+    {
+        ValidateIssuer = true,
+        ValidateAudience = true,
+        ValidateLifetime = true,
+        ValidateIssuerSigningKey = true,
+        ValidIssuer = builder.Configuration["Jwt:Issuer"],
+        ValidAudience = builder.Configuration["Jwt:Audience"],
+        IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(builder.Configuration["Jwt:Key"]))
+    };
+});
+
+builder.Services.AddAuthorization(); // Добавьте службу авторизации
+
+// ===============================================================
+// НАСТРОЙКА JWT АУТЕНТИФИКАЦИИ - КОНЕЦ
+// ===============================================================
+
+
+// ===============================================================
 // НАСТРОЙКА ENTITY FRAMEWORK CORE И POSTGRESQL
 // ===============================================================
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection"),
-        // ЭТА СТРОКА ГОВОРИТ EF Core, ГДЕ ИСКАТЬ МИГРАЦИИ!
         b => b.MigrationsAssembly("MerchShop.WebAPI")));
 // ===============================================================
 
-// Используем AddControllers() для Web API и настраиваем JSON-сериализацию
+// Регистрируем ITokenService
+builder.Services.AddScoped<ITokenService, TokenService>();
+
+
 builder.Services.AddControllers()
     .AddJsonOptions(options =>
     {
-        options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.Preserve;
-        options.JsonSerializerOptions.WriteIndented = true; // Для более читаемого JSON в разработке
+        options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.Preserve; // Оставляем, если нужно для других моделей
+        options.JsonSerializerOptions.WriteIndented = true;
     });
 
 
@@ -61,61 +87,17 @@ if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
-
-    // Опционально: автоматическое применение миграций при запуске в режиме разработки
-    // ИСПОЛЬЗУЙТЕ С ОСТОРОЖНОСТЬЮ! ЛУЧШЕ УПРАВЛЯТЬ МИГРАЦИЯМИ ВРУЧНУЮ ЧЕРЕЗ dotnet ef database update
-    /*
-    using (var scope = app.Services.CreateScope())
-    {
-        var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        dbContext.Database.Migrate();
-    }
-    */
 }
 
 app.UseHttpsRedirection();
 app.UseRouting();
-app.UseCors(); // Применяем политику CORS
 
-app.UseAuthorization();
+// --- ВАЖНО: UseAuthentication и UseAuthorization должны быть здесь ---
+app.UseCors(); // Применяем политику CORS (должен быть до UseAuthentication)
+app.UseAuthentication(); // Добавьте этот middleware
+app.UseAuthorization(); // Добавьте этот middleware
 
-app.MapControllers(); // Для контроллеров
-
-// *** ВНИМАНИЕ: SPA-специфичные мидлвары удалены из этого проекта, если вы не используете интеграцию SPA в один проект ***
-// Если вы хотите интегрировать React в тот же проект WebAPI, как обсуждалось ранее,
-// эти строки должны быть, а не закомментированы. Однако, если у вас отдельный клиентский проект,
-// то они не нужны здесь.
-/*
-app.UseSpaStaticFiles();
-app.MapFallbackToFile("index.html");
-app.UseSpa(spa =>
-{
-    spa.Options.SourcePath = "clientapp";
-    if (app.Environment.IsDevelopment())
-    {
-        spa.UseReactDevelopmentServer(npmScript: "start");
-    }
-});
-*/
-
-app.MapGet("/weatherforecast", () =>
-{
-    var summaries = new[]
-    {
-        "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-    };
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
-})
-.WithName("GetWeatherForecast")
-.WithOpenApi();
+app.MapControllers();
 
 app.Run();
 
