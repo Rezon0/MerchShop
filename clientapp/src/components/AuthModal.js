@@ -4,12 +4,11 @@ import React, { useEffect } from 'react';
 const AuthModal = ({ show, onClose, navigateTo }) => {
     // Этот useEffect будет срабатывать при каждом рендере компонента AuthModal и изменении пропса 'show'
     useEffect(() => {
-        if (show) {
-            console.log('AuthModal: Компонент отображается (show = true)');
-        } else {
-            console.log('AuthModal: Компонент скрыт (show = false)');
-        }
+        console.log('AuthModal useEffect: Пропс show изменился на:', show);
     }, [show]); // Запускается при изменении пропса 'show'
+
+    // DEBUG LOG: Проверяем значение пропса 'show' непосредственно перед условным рендером
+    console.log('AuthModal render: Значение пропса show:', show);
 
     if (!show) {
         // Если show = false, компонент не рендерит ничего
@@ -17,7 +16,7 @@ const AuthModal = ({ show, onClose, navigateTo }) => {
     }
 
     // Если мы дошли сюда, значит show = true, и модальное окно должно быть видно
-    console.log('AuthModal: Модальное окно активно и пытается отобразиться на экране.');
+    console.log('AuthModal render: Модальное окно активно и пытается отобразиться на экране.');
 
     return (
         <div className="fixed inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center z-50 p-4">
