@@ -1,7 +1,7 @@
 // src/App.js
 import React, { useState, useEffect } from 'react';
-import { Routes, Route, useNavigate } from 'react-router-dom'; // Импортируем Routes, Route и useNavigate
-import './App.css'; // Убедитесь, что этот файл существует
+import { Routes, Route, useNavigate } from 'react-router-dom';
+import './App.css';
 
 // Импорт компонентов
 import Header from './components/Header';
@@ -15,43 +15,64 @@ import ProductDetailPage from './pages/ProductDetailPage';
 import CartPage from './pages/CartPage';
 import LoginPage from './pages/LoginPage';
 import RegisterPage from './pages/RegisterPage';
+import UserProfilePage from './pages/UserProfilePage'; // НОВАЯ СТРАНИЦА: Профиль пользователя
 
 // Импорт пользовательских хуков
 import useDebounce from './hooks/useDebounce';
 
 const App = () => {
-    // Состояние для фактических данных о продуктах из API
     const [apiProducts, setApiProducts] = useState([]);
     const [apiLoading, setApiLoading] = useState(true);
     const [apiError, setApiError] = useState(null);
-
-    // Состояние для корзины
     const [cartItems, setCartItems] = useState([]);
-
-    // Состояние для поиска
     const [searchTerm, setSearchTerm] = useState('');
     const debouncedSearchTerm = useDebounce(searchTerm, 300);
-
-    // Состояние для модального окна авторизации
     const [showAuthModal, setShowAuthModal] = useState(false);
 
-    // useNavigate из react-router-dom для программной навигации
+    const [isLoggedIn, setIsLoggedIn] = useState(false);
+    const [currentUserId, setCurrentUserId] = useState(null);
+    const [currentUserName, setCurrentUserName] = useState(null);
+
     const navigate = useNavigate();
 
-    // useEffect для получения данных из API при монтировании компонента App
+    useEffect(() => {
+        const token = localStorage.getItem('accessToken');
+        const userId = localStorage.getItem('userId');
+        const userName = localStorage.getItem('userName');
+
+        if (token && userId && userName) {
+            setIsLoggedIn(true);
+            setCurrentUserId(userId);
+            setCurrentUserName(userName);
+        } else {
+            setIsLoggedIn(false);
+            setCurrentUserId(null);
+            setCurrentUserName(null);
+        }
+    }, []);
+
+    const handleLogout = () => {
+        localStorage.removeItem('accessToken');
+        localStorage.removeItem('refreshToken');
+        localStorage.removeItem('userId');
+        localStorage.removeItem('userName');
+        setIsLoggedIn(false);
+        setCurrentUserId(null);
+        setCurrentUserName(null);
+        navigate('/login');
+    };
+
     useEffect(() => {
         const fetchProducts = async () => {
             setApiLoading(true);
             setApiError(null);
 
             try {
-                // Убедитесь, что порт вашего API правильный (7041 или 7232 или другой)
-                const response = await fetch('https://localhost:7232/api/Products'); // <-- Проверьте этот порт!
+                const response = await fetch('https://localhost:7232/api/Products');
                 if (!response.ok) {
                     throw new Error(`HTTP error! Status: ${response.status}`);
                 }
                 const data = await response.json();
-                // Десериализация $values из ответа ASP.NET Core
                 setApiProducts(Array.isArray(data.$values) ? data.$values : data);
             } catch (err) {
                 console.error("Error fetching products from API:", err);
@@ -62,9 +83,8 @@ const App = () => {
         };
 
         fetchProducts();
-    }, []); // Пустой массив зависимостей: эффект запускается один раз при монтировании
+    }, []);
 
-    // Функции для корзины
     const addToCart = (product) => {
         setCartItems(prevItems => {
             const existingItem = prevItems.find(item => item.product.id === product.id);
@@ -76,7 +96,7 @@ const App = () => {
                 return [...prevItems, { product: product, quantity: 1 }];
             }
         });
-        alert(`${product.name} добавлен в корзину!`); // Consider replacing alert with a custom modal/toast
+        alert(`${product.name} добавлен в корзину!`);
     };
 
     const removeFromCart = (productId) => {
@@ -95,25 +115,20 @@ const App = () => {
         );
     };
 
-    // Обработчик клика по кнопке "Профиль"
     const handleProfileClick = () => {
-        console.log('App.js: handleProfileClick вызвана!'); // DEBUG LOG
+        console.log('App.js: handleProfileClick вызвана!');
         setShowAuthModal(true);
     };
 
-    // Функции для управления модальным окном
     const closeAuthModal = () => {
-        console.log('App.js: closeAuthModal вызвана!'); // DEBUG LOG
+        console.log('App.js: closeAuthModal вызвана!');
         setShowAuthModal(false);
     };
 
-    // DEBUG LOG: Отслеживаем изменение showAuthModal
     useEffect(() => {
         console.log('App.js: showAuthModal изменилось на:', showAuthModal);
     }, [showAuthModal]);
 
-
-    // Отображение состояния загрузки или ошибки API
     if (apiLoading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-gray-100">
@@ -141,38 +156,34 @@ const App = () => {
         );
     }
 
+    // DEBUG LOG: Проверяем showAuthModal непосредственно перед рендером
+    console.log('App.js: showAuthModal (перед рендером AuthModal):', showAuthModal);
+
     return (
         <div className="min-h-screen flex flex-col font-sans bg-gray-50">
-            {/* Глобальные CSS анимации */}
             <style>
                 {`
-                @keyframes scaleIn {
-                    from { opacity: 0; transform: scale(0.95); }
-                    to { opacity: 1; transform: scale(1); }
-                }
+                @keyframes scaleIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
                 .animate-scaleIn { animation: scaleIn 0.3s ease-out forwards; }
-
-                @keyframes fadeInDown {
-                    from { opacity: 0; transform: translateY(-20px); }
-                    to { opacity: 1; transform: translateY(0); }
-                }
+                @keyframes fadeInDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
                 .animate-fadeInDown { animation: fadeInDown 0.6s ease-out forwards; }
                 `}
             </style>
 
             <Header
-                navigateTo={navigate} // Передаем navigate из react-router-dom
+                navigateTo={navigate}
                 cartItems={cartItems}
                 searchTerm={searchTerm}
                 setSearchTerm={setSearchTerm}
                 onProfileClick={handleProfileClick}
-                showAuthModal={showAuthModal} // Передаем состояние showAuthModal
+                showAuthModal={showAuthModal}
+                isLoggedIn={isLoggedIn}
+                currentUserName={currentUserName}
+                onLogout={handleLogout}
             />
 
             <main className="flex-grow p-4">
-                {/* Здесь определяются маршруты с помощью Routes и Route */}
                 <Routes>
-                    {/* Главная страница теперь ProductsPage */}
                     <Route
                         path="/"
                         element={
@@ -184,8 +195,6 @@ const App = () => {
                             />
                         }
                     />
-
-                    {/* ProductsPage - основной список товаров, также доступен по /products */}
                     <Route
                         path="/products"
                         element={
@@ -197,18 +206,16 @@ const App = () => {
                             />
                         }
                     />
-                    {/* ProductDetailPage - детали одного товара, используем параметр URL :id */}
                     <Route
                         path="/products/:id"
                         element={
                             <ProductDetailPage
                                 navigateTo={navigate}
                                 addToCart={addToCart}
-                                products={apiProducts} // Продукты для поиска конкретного по ID
+                                products={apiProducts}
                             />
                         }
                     />
-                    {/* CartPage - страница корзины */}
                     <Route
                         path="/cart"
                         element={
@@ -220,15 +227,21 @@ const App = () => {
                             />
                         }
                     />
-                    {/* LoginPage - страница входа */}
                     <Route path="/login" element={<LoginPage navigateTo={navigate} />} />
-                    {/* RegisterPage - страница регистрации */}
                     <Route path="/register" element={<RegisterPage navigateTo={navigate} />} />
-
-                    {/* HomePage - если вы хотите сохранить ее как отдельную страницу, например, для информации о компании */}
                     <Route path="/home" element={<HomePage navigateTo={navigate} />} />
 
-                    {/* Если URL не соответствует ни одному маршруту, можно добавить 404 страницу */}
+                    <Route
+                        path="/profile"
+                        element={
+                            isLoggedIn ? (
+                                <UserProfilePage userId={currentUserId} userName={currentUserName} onLogout={handleLogout} />
+                            ) : (
+                                <LoginPage navigateTo={navigate} />
+                            )
+                        }
+                    />
+
                     <Route path="*" element={<h2>404: Страница не найдена</h2>} />
                 </Routes>
             </main>
@@ -236,8 +249,8 @@ const App = () => {
             <Footer />
 
             {/* Модальное окно авторизации/регистрации */}
-            {/* Добавляем key для принудительного перемонтирования компонента при изменении showAuthModal */}
-            {showAuthModal && <AuthModal key="auth-modal-instance" show={showAuthModal} onClose={closeAuthModal} navigateTo={navigate} />}
+            {/* Убрали key="auth-modal-instance" */}
+            {showAuthModal && <AuthModal show={showAuthModal} onClose={closeAuthModal} navigateTo={navigate} />}
         </div>
     );
 };
