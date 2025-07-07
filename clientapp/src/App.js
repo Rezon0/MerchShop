@@ -1,258 +1,336 @@
-// src/App.js
-import React, { useState, useEffect } from 'react';
-import { Routes, Route, useNavigate } from 'react-router-dom';
-import './App.css';
+// App.js
+import React, { useState, useEffect, createContext, useContext, useCallback } from 'react'; // Добавлен useCallback
+import { BrowserRouter as Router, Route, Routes, Link, useNavigate } from 'react-router-dom';
+import ProductCard from './components/ProductCard'; // ProductCard в папке components
+import LoginPage from './pages/LoginPage'; // LoginPage в папке pages
+import RegisterPage from './pages/RegisterPage'; // RegisterPage в папке pages
+import CartPage from './pages/CartPage'; // CartPage в папке pages
+import ProfilePage from './pages/ProfilePage'; // ProfilePage в папке pages
+import OrderHistoryPage from './pages/OrderHistoryPage'; // OrderHistoryPage в папке pages
+import './App.css'; // Добавьте ваш CSS файл, если он есть
+import { ShoppingCart, User, LogOut, Package, Home } from 'lucide-react'; // Импорт иконок
+import { jwtDecode } from 'jwt-decode'; // Импорт jwt-decode
 
-// Импорт компонентов
-import Header from './components/Header';
-import Footer from './components/Footer';
-import AuthModal from './components/AuthModal';
+// Контекст для аутентификации
+export const AuthContext = createContext(null);
 
-// Импорт страниц
-import HomePage from './pages/HomePage';
-import ProductsPage from './pages/ProductsPage';
-import ProductDetailPage from './pages/ProductDetailPage';
-import CartPage from './pages/CartPage';
-import LoginPage from './pages/LoginPage';
-import RegisterPage from './pages/RegisterPage';
-import UserProfilePage from './pages/UserProfilePage'; // НОВАЯ СТРАНИЦА: Профиль пользователя
+// Контекст для корзины
+export const CartContext = createContext(null);
 
-// Импорт пользовательских хуков
-import useDebounce from './hooks/useDebounce';
+function App() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [accessToken, setAccessToken] = useState(localStorage.getItem('accessToken') || null);
+  const [user, setUser] = useState(null);
+  const [cartItems, setCartItems] = useState([]);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const navigate = useNavigate();
 
-const App = () => {
-    const [apiProducts, setApiProducts] = useState([]);
-    const [apiLoading, setApiLoading] = useState(true);
-    const [apiError, setApiError] = useState(null);
-    const [cartItems, setCartItems] = useState([]);
-    const [searchTerm, setSearchTerm] = useState('');
-    const debouncedSearchTerm = useDebounce(searchTerm, 300);
-    const [showAuthModal, setShowAuthModal] = useState(false);
+  const API_BASE_URL = 'https://localhost:7232/api';
 
-    const [isLoggedIn, setIsLoggedIn] = useState(false);
-    const [currentUserId, setCurrentUserId] = useState(null);
-    const [currentUserName, setCurrentUserName] = useState(null);
+  // Функция для получения токена из localStorage
+  const getAccessToken = () => {
+    const token = localStorage.getItem('accessToken');
+    console.log('getAccessToken called, token from localStorage:', token ? 'Exists' : 'Does not exist');
+    return token;
+  };
 
-    const navigate = useNavigate();
+  // Мемоизированная функция для получения элементов корзины
+  const fetchCartItems = useCallback(async () => {
+    const token = getAccessToken();
+    console.log('fetchCartItems called. Current isLoggedIn state:', isLoggedIn, 'Token:', token ? 'Exists' : 'Does not exist');
 
-    useEffect(() => {
-        const token = localStorage.getItem('accessToken');
-        const userId = localStorage.getItem('userId');
-        const userName = localStorage.getItem('userName');
+    if (!token) {
+      console.warn('No access token found for fetching cart. User might not be logged in.');
+      setCartItems([]);
+      return;
+    }
 
-        if (token && userId && userName) {
-            setIsLoggedIn(true);
-            setCurrentUserId(userId);
-            setCurrentUserName(userName);
+    try {
+      console.log('Attempting to fetch cart with token...');
+      const response = await fetch(`${API_BASE_URL}/Cart`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          console.error('Unauthorized access to cart. Token might be expired or invalid. Logging out.');
+          handleLogout();
+        }
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('Cart fetched successfully:', data);
+      setCartItems(data);
+    } catch (error) {
+      console.error('Error fetching cart items:', error);
+    }
+  }, [isLoggedIn, navigate]); // Зависимости для useCallback: isLoggedIn, navigate, getAccessToken (неявная)
+
+  // Мемоизированная функция для добавления товара в корзину
+  const addToCart = useCallback(async (productDesignId, quantity = 1) => {
+    const token = getAccessToken();
+    if (!token) {
+      setShowAuthModal(true);
+      return;
+    }
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/Cart/add`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          productDesignId: productDesignId,
+          quantity: quantity
+        })
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          console.error('Unauthorized access to cart. Token might be expired or invalid. Logging out.');
+          handleLogout();
+        }
+        const errorData = await response.json();
+        console.error('Error adding to cart:', errorData.message || `HTTP error! Status: ${response.status}`);
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('Item added to cart successfully:', data);
+      fetchCartItems(); // Обновить корзину после добавления
+    } catch (error) {
+      console.error('Error adding to cart:', error);
+    }
+  }, [fetchCartItems, setShowAuthModal]); // Зависимости для useCallback: fetchCartItems, setShowAuthModal
+
+  // Мемоизированная функция для удаления товара из корзины
+  const removeFromCart = useCallback(async (cartItemId) => {
+    const token = getAccessToken();
+    if (!token) return;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/Cart/remove/${cartItemId}`, {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          console.error('Unauthorized access to cart. Token might be expired or invalid. Logging out.');
+          handleLogout();
+        }
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+
+      console.log('Item removed from cart successfully.');
+      fetchCartItems();
+    } catch (error) {
+      console.error('Error removing from cart:', error);
+    }
+  }, [fetchCartItems]); // Зависимости для useCallback: fetchCartItems
+
+  // Мемоизированная функция для обновления количества товара в корзине
+  const updateCartItemQuantity = useCallback(async (cartItemId, newQuantity) => {
+    const token = getAccessToken();
+    if (!token) return;
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/Cart/update-quantity`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ cartItemId, newQuantity })
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          console.error('Unauthorized access to cart. Token might be expired or invalid. Logging out.');
+          handleLogout();
+        }
+        throw new Error(`HTTP error! Status: ${response.status}`);
+      }
+
+      console.log('Cart item quantity updated successfully.');
+      fetchCartItems();
+    } catch (error) {
+      console.error('Error updating cart item quantity:', error);
+    }
+  }, [fetchCartItems]); // Зависимости для useCallback: fetchCartItems
+
+  // Мемоизированная функция для успешного входа
+  const handleLoginSuccess = useCallback((token) => {
+    localStorage.setItem('accessToken', token);
+    setAccessToken(token);
+    setIsLoggedIn(true);
+    setShowAuthModal(false);
+    console.log('handleLoginSuccess: Token received (type and value):', typeof token, token);
+    try {
+      const decodedToken = jwtDecode(token);
+      setUser(decodedToken);
+    } catch (error) {
+      console.error('Failed to decode token:', error);
+      setUser(null);
+    }
+    console.log('handleLoginSuccess called. Setting user data and token.');
+    fetchCartItems();
+    navigate('/');
+  }, [fetchCartItems, navigate, setShowAuthModal]); // Зависимости для useCallback: fetchCartItems, navigate, setShowAuthModal
+
+  // Мемоизированная функция для выхода из системы
+  const handleLogout = useCallback(() => {
+    localStorage.removeItem('accessToken');
+    setAccessToken(null);
+    setIsLoggedIn(false);
+    setUser(null);
+    setCartItems([]);
+    console.log('handleLogout called. Clearing session.');
+    navigate('/');
+  }, [navigate]); // Зависимости для useCallback: navigate
+
+  useEffect(() => {
+    const token = getAccessToken();
+    if (token) {
+      console.log('App useEffect: Initial token (type and value):', typeof token, token);
+      try {
+        const decodedToken = jwtDecode(token);
+        if (decodedToken.exp * 1000 < Date.now()) {
+          console.warn('Access token expired. Logging out.');
+          handleLogout();
         } else {
-            setIsLoggedIn(false);
-            setCurrentUserId(null);
-            setCurrentUserName(null);
+          setIsLoggedIn(true);
+          setUser(decodedToken);
+          console.log('Initial load: User is logged in.');
+          fetchCartItems();
         }
-    }, []);
-
-    const handleLogout = () => {
-        localStorage.removeItem('accessToken');
-        localStorage.removeItem('refreshToken');
-        localStorage.removeItem('userId');
-        localStorage.removeItem('userName');
-        setIsLoggedIn(false);
-        setCurrentUserId(null);
-        setCurrentUserName(null);
-        navigate('/login');
-    };
-
-    useEffect(() => {
-        const fetchProducts = async () => {
-            setApiLoading(true);
-            setApiError(null);
-
-            try {
-                const response = await fetch('https://localhost:7232/api/Products');
-                if (!response.ok) {
-                    throw new Error(`HTTP error! Status: ${response.status}`);
-                }
-                const data = await response.json();
-                setApiProducts(Array.isArray(data.$values) ? data.$values : data);
-            } catch (err) {
-                console.error("Error fetching products from API:", err);
-                setApiError("Не удалось загрузить товары из API. Пожалуйста, попробуйте позже.");
-            } finally {
-                setApiLoading(false);
-            }
-        };
-
-        fetchProducts();
-    }, []);
-
-    const addToCart = (product) => {
-        setCartItems(prevItems => {
-            const existingItem = prevItems.find(item => item.product.id === product.id);
-            if (existingItem) {
-                return prevItems.map(item =>
-                    item.product.id === product.id ? { ...item, quantity: item.quantity + 1 } : item
-                );
-            } else {
-                return [...prevItems, { product: product, quantity: 1 }];
-            }
-        });
-        alert(`${product.name} добавлен в корзину!`);
-    };
-
-    const removeFromCart = (productId) => {
-        setCartItems(prevItems => prevItems.filter(item => item.product.id !== productId));
-    };
-
-    const updateQuantity = (productId, newQuantity) => {
-        if (newQuantity <= 0) {
-            removeFromCart(productId);
-            return;
-        }
-        setCartItems(prevItems =>
-            prevItems.map(item =>
-                item.product.id === productId ? { ...item, quantity: newQuantity } : item
-            )
-        );
-    };
-
-    const handleProfileClick = () => {
-        console.log('App.js: handleProfileClick вызвана!');
-        setShowAuthModal(true);
-    };
-
-    const closeAuthModal = () => {
-        console.log('App.js: closeAuthModal вызвана!');
-        setShowAuthModal(false);
-    };
-
-    useEffect(() => {
-        console.log('App.js: showAuthModal изменилось на:', showAuthModal);
-    }, [showAuthModal]);
-
-    if (apiLoading) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-100">
-                <div className="text-center">
-                    <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto mb-4"></div>
-                    <p className="text-gray-600 text-xl">Загрузка товаров из API...</p>
-                </div>
-            </div>
-        );
+      } catch (error) {
+        console.error('Failed to decode token on initial load:', error);
+        handleLogout();
+      }
+    } else {
+      setIsLoggedIn(false);
+      console.log('Initial load: User is NOT logged in.');
     }
+  }, [fetchCartItems, handleLogout]); // Зависимости для useEffect: fetchCartItems, handleLogout
 
-    if (apiError) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-100">
-                <div className="text-center bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-md shadow-md">
-                    <p className="text-lg font-semibold">{apiError}</p>
-                    <button
-                        onClick={() => window.location.reload()}
-                        className="mt-4 bg-red-600 text-white font-bold py-2 px-6 rounded-full hover:bg-red-700 transition duration-300 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-opacity-50"
-                    >
-                        Повторить
-                    </button>
-                </div>
+  useEffect(() => {
+    console.log('isLoggedIn or accessToken changed. isLoggedIn:', isLoggedIn, 'accessToken:', accessToken ? 'Exists' : 'Does not exist');
+  }, [isLoggedIn, accessToken]);
+
+  useEffect(() => {
+    console.log('App.js: showAuthModal изменилось на:', showAuthModal);
+  }, [showAuthModal]);
+
+  // Вычисляем общее количество товаров в корзине
+  const totalCartQuantity = cartItems.reduce((total, item) => total + item.quantity, 0);
+
+  return (
+    <AuthContext.Provider value={{ isLoggedIn, user, handleLoginSuccess, handleLogout, setShowAuthModal }}>
+      <CartContext.Provider value={{ cartItems, addToCart, removeFromCart, updateCartItemQuantity, fetchCartItems }}>
+        <div className="min-h-screen bg-gray-100 flex flex-col">
+          <header className="bg-white shadow-md p-4 flex justify-between items-center">
+            <Link to="/" className="text-2xl font-bold text-gray-800">MerchShop</Link>
+            <nav className="flex items-center space-x-4">
+              <Link to="/" className="text-gray-600 hover:text-gray-900 flex items-center">
+                <Home className="mr-1" size={20} /> Товары
+              </Link>
+              {isLoggedIn ? (
+                <>
+                  <Link to="/cart" className="text-gray-600 hover:text-gray-900 flex items-center">
+                    <ShoppingCart className="mr-1" size={20} /> Корзина ({totalCartQuantity}) {/* ИЗМЕНЕНО: cartItems.length на totalCartQuantity */}
+                  </Link>
+                  <Link to="/profile" className="text-gray-600 hover:text-gray-900 flex items-center">
+                    <User className="mr-1" size={20} /> Профиль
+                  </Link>
+                  <Link to="/orders" className="text-gray-600 hover:text-gray-900 flex items-center">
+                    <Package className="mr-1" size={20} /> Заказы
+                  </Link>
+                  <button onClick={handleLogout} className="text-gray-600 hover:text-gray-900 flex items-center">
+                    <LogOut className="mr-1" size={20} /> Выйти
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button onClick={() => setShowAuthModal(true)} className="text-gray-600 hover:text-gray-900 flex items-center">
+                    <User className="mr-1" size={20} /> Войти
+                  </button>
+                  <Link to="/register" className="text-gray-600 hover:text-gray-900 flex items-center">
+                    Зарегистрироваться
+                  </Link>
+                </>
+              )}
+            </nav>
+          </header>
+
+          <main className="flex-grow container mx-auto p-4">
+            <Routes>
+              <Route path="/" element={<ProductsPage API_BASE_URL={API_BASE_URL} onAddToCart={addToCart} />} />
+              <Route path="/cart" element={<CartPage API_BASE_URL={API_BASE_URL} />} />
+              <Route path="/profile" element={<ProfilePage API_BASE_URL={API_BASE_URL} />} />
+              <Route path="/orders" element={<OrderHistoryPage API_BASE_URL={API_BASE_URL} />} />
+              <Route path="/login" element={<LoginPage API_BASE_URL={API_BASE_URL} />} />
+              <Route path="/register" element={<RegisterPage API_BASE_URL={API_BASE_URL} />} />
+            </Routes>
+          </main>
+
+          {showAuthModal && (
+            <div className="fixed inset-0 bg-gray-600 bg-opacity-50 flex items-center justify-center z-50">
+              <div className="bg-white p-6 rounded-lg shadow-xl max-w-md w-full relative">
+                <button
+                  onClick={() => setShowAuthModal(false)}
+                  className="absolute top-3 right-3 text-gray-500 hover:text-gray-700 text-xl font-bold"
+                >
+                  &times;
+                </button>
+                <LoginPage API_BASE_URL={API_BASE_URL} onLoginSuccess={handleLoginSuccess} />
+              </div>
             </div>
-        );
-    }
-
-    // DEBUG LOG: Проверяем showAuthModal непосредственно перед рендером
-    console.log('App.js: showAuthModal (перед рендером AuthModal):', showAuthModal);
-
-    return (
-        <div className="min-h-screen flex flex-col font-sans bg-gray-50">
-            <style>
-                {`
-                @keyframes scaleIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
-                .animate-scaleIn { animation: scaleIn 0.3s ease-out forwards; }
-                @keyframes fadeInDown { from { opacity: 0; transform: translateY(-20px); } to { opacity: 1; transform: translateY(0); } }
-                .animate-fadeInDown { animation: fadeInDown 0.6s ease-out forwards; }
-                `}
-            </style>
-
-            <Header
-                navigateTo={navigate}
-                cartItems={cartItems}
-                searchTerm={searchTerm}
-                setSearchTerm={setSearchTerm}
-                onProfileClick={handleProfileClick}
-                showAuthModal={showAuthModal}
-                isLoggedIn={isLoggedIn}
-                currentUserName={currentUserName}
-                onLogout={handleLogout}
-            />
-
-            <main className="flex-grow p-4">
-                <Routes>
-                    <Route
-                        path="/"
-                        element={
-                            <ProductsPage
-                                navigateTo={navigate}
-                                addToCart={addToCart}
-                                products={apiProducts}
-                                searchTerm={debouncedSearchTerm}
-                            />
-                        }
-                    />
-                    <Route
-                        path="/products"
-                        element={
-                            <ProductsPage
-                                navigateTo={navigate}
-                                addToCart={addToCart}
-                                products={apiProducts}
-                                searchTerm={debouncedSearchTerm}
-                            />
-                        }
-                    />
-                    <Route
-                        path="/products/:id"
-                        element={
-                            <ProductDetailPage
-                                navigateTo={navigate}
-                                addToCart={addToCart}
-                                products={apiProducts}
-                            />
-                        }
-                    />
-                    <Route
-                        path="/cart"
-                        element={
-                            <CartPage
-                                cartItems={cartItems}
-                                navigateTo={navigate}
-                                removeFromCart={removeFromCart}
-                                updateQuantity={updateQuantity}
-                            />
-                        }
-                    />
-                    <Route path="/login" element={<LoginPage navigateTo={navigate} />} />
-                    <Route path="/register" element={<RegisterPage navigateTo={navigate} />} />
-                    <Route path="/home" element={<HomePage navigateTo={navigate} />} />
-
-                    <Route
-                        path="/profile"
-                        element={
-                            isLoggedIn ? (
-                                <UserProfilePage userId={currentUserId} userName={currentUserName} onLogout={handleLogout} />
-                            ) : (
-                                <LoginPage navigateTo={navigate} />
-                            )
-                        }
-                    />
-
-                    <Route path="*" element={<h2>404: Страница не найдена</h2>} />
-                </Routes>
-            </main>
-
-            <Footer />
-
-            {/* Модальное окно авторизации/регистрации */}
-            {/* Убрали key="auth-modal-instance" */}
-            {showAuthModal && <AuthModal show={showAuthModal} onClose={closeAuthModal} navigateTo={navigate} />}
+          )}
         </div>
-    );
-};
+      </CartContext.Provider>
+    </AuthContext.Provider>
+  );
+}
 
 export default App;
+
+function ProductsPage({ API_BASE_URL, onAddToCart }) {
+  const [products, setProducts] = useState([]);
+
+  useEffect(() => {
+    const fetchProducts = async () => {
+      try {
+        const response = await fetch(`${API_BASE_URL}/Products`);
+        if (!response.ok) {
+          throw new Error(`HTTP error! Status: ${response.status}`);
+        }
+        const data = await response.json();
+        setProducts(data);
+      } catch (error) {
+        console.error('Error fetching products:', error);
+        alert('Не удалось загрузить товары из API. Пожалуйста, попробуйте позже.');
+      }
+    };
+
+    fetchProducts();
+  }, [API_BASE_URL]);
+
+  return (
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {products.map(product => (
+        <ProductCard key={product.id} product={product} onAddToCart={onAddToCart} />
+      ))}
+    </div>
+  );
+}
