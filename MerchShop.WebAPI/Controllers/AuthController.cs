@@ -1,25 +1,25 @@
-// MerchShop.WebAPI/Controllers/AuthController.cs
 using Microsoft.AspNetCore.Mvc;
 using MerchShop.Core.Data;
 using MerchShop.Core.Models;
 using MerchShop.WebAPI.DTOs;
 using System.Threading.Tasks;
-using Microsoft.EntityFrameworkCore; // For SingleOrDefaultAsync, Where, FirstOrDefaultAsync
-using BCrypt.Net; // For password hashing and verification
-using MerchShop.WebAPI.Services; // For ITokenService
-using System.Security.Claims; // For ClaimTypes
-using System.Linq; // For LINQ methods like FirstOrDefault
+using Microsoft.EntityFrameworkCore;
+using BCrypt.Net;
+using MerchShop.WebAPI.Services;
+using System.Security.Claims;
+using System.Linq;
+using Microsoft.AspNetCore.Authorization; // Добавьте этот using для [Authorize]
+using System; // Добавьте этот using для DateTime
 
 namespace MerchShop.WebAPI.Controllers
 {
-    [ApiController] // Indicates that this is an API controller
-    [Route("api/[controller]")] // Defines the route for the controller: /api/Auth
+    [ApiController]
+    [Route("api/[controller]")]
     public class AuthController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
-        private readonly ITokenService _tokenService; // Dependency injection for token service
+        private readonly ITokenService _tokenService;
 
-        // Constructor: injects ApplicationDbContext and ITokenService via DI
         public AuthController(ApplicationDbContext context, ITokenService tokenService)
         {
             _context = context;
@@ -163,9 +163,52 @@ namespace MerchShop.WebAPI.Controllers
                 UserName = user.FirstName
             });
         }
+
+        /// <summary>
+        /// Retrieves the profile information for the authenticated user.
+        /// </summary>
+        /// <returns>User profile data.</returns>
+        [Authorize] // Этот эндпоинт требует авторизации
+        [HttpGet("profile")] // Route: /api/Auth/profile
+        public async Task<ActionResult<UserProfileResponse>> GetUserProfile()
+        {
+            // Получаем ID пользователя из claims (утверждений) JWT-токена
+            var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier);
+            if (userIdClaim == null)
+            {
+                return Unauthorized(new { message = "Не удалось получить ID пользователя из токена." });
+            }
+
+            // Проверяем, что значение клейма является числом
+            if (!int.TryParse(userIdClaim.Value, out int userId))
+            {
+                return BadRequest(new { message = "Неверный формат ID пользователя в токене." });
+            }
+
+            // Находим пользователя в базе данных
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId);
+
+            if (user == null)
+            {
+                return NotFound(new { message = "Пользователь не найден." });
+            }
+
+            // Возвращаем данные профиля, используя DTO
+            return Ok(new UserProfileResponse
+            {
+                UserId = user.Id,
+                Email = user.Email,
+                FirstName = user.FirstName,
+                LastName = user.LastName,
+                MiddleName = user.MiddleName,
+                DateOfBirth = user.DateOfBirth,
+                Phone = user.Phone
+                // Не возвращайте PasswordHash!
+            });
+        }
     }
 
-    // Helper DTO for token refresh request
+    // Это должны быть уже существующие DTOs
     public class TokenRequest
     {
         public string AccessToken { get; set; } = string.Empty;
