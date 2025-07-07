@@ -1,91 +1,124 @@
-import React from 'react';
+// src/pages/CartPage.js
+import React, { useContext, useEffect, useState } from 'react';
+import { CartContext, AuthContext } from '../App'; // Убедитесь, что путь к App.js корректен
+import { Trash2, Plus, Minus } from 'lucide-react'; // Импорт иконок
+import { useNavigate } from 'react-router-dom'; // Импорт useNavigate
 
-const CartPage = ({ cartItems, navigateTo, removeFromCart, updateQuantity }) => {
-    const total = cartItems.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+function CartPage({ API_BASE_URL }) {
+  const { cartItems, removeFromCart, updateCartItemQuantity, fetchCartItems } = useContext(CartContext);
+  const { isLoggedIn } = useContext(AuthContext); // Получаем isLoggedIn из AuthContext
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const navigate = useNavigate(); // Инициализация useNavigate
 
-    return (
-        <section className="py-8 px-4 bg-gray-100 min-h-screen">
-            <div className="container mx-auto">
-                <h2 className="text-4xl font-bold text-gray-800 mb-8 text-center">Ваша Корзина</h2>
-                {cartItems.length === 0 ? (
-                    <div className="bg-white rounded-xl shadow-lg p-6 text-center">
-                        <p className="text-gray-600 text-lg">Ваша корзина в настоящее время пуста.</p>
-                        <button
-                            onClick={() => navigateTo('products')}
-                            className="mt-6 bg-indigo-600 text-white font-bold py-2 px-6 rounded-full hover:bg-indigo-700 transition duration-300 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50"
-                        >
-                            Вернуться к Покупкам
-                        </button>
-                    </div>
-                ) : (
-                    <div className="bg-white rounded-xl shadow-lg p-6">
-                        <div className="divide-y divide-gray-200">
-                            {cartItems.map(item => {
-                                const imageUrl = item.product.productDesigns &&
-                                                 Array.isArray(item.product.productDesigns.$values) &&
-                                                 item.product.productDesigns.$values.length > 0 &&
-                                                 item.product.productDesigns.$values[0].design?.imageUrl
-                                    ? item.product.productDesigns.$values[0].design.imageUrl
-                                    : item.product.primaryImageUrl || 'https://placehold.co/80x80/6b7280/ffffff?text=Img';
+  useEffect(() => {
+    console.log('CartPage useEffect: isLoggedIn state:', isLoggedIn); // Логируем состояние isLoggedIn
+    const loadCart = async () => {
+      setLoading(true);
+      setError(null);
+      if (isLoggedIn) { // Загружаем корзину только если пользователь авторизован
+        try {
+          await fetchCartItems();
+        } catch (err) {
+          setError('Не удалось загрузить корзину. Пожалуйста, попробуйте позже.');
+          console.error('Error loading cart:', err);
+        } finally {
+          setLoading(false);
+        }
+      } else {
+        setLoading(false);
+        // Эта строка была причиной ESLint ошибки и не нужна,
+        // так как fetchCartItems в App.js уже управляет состоянием cartItems
+        // setCartItems([]);
+        setError('Пожалуйста, войдите, чтобы просмотреть и управлять вашей корзиной.');
+      }
+    };
+    loadCart();
+  }, [fetchCartItems, isLoggedIn]); // Зависимость от fetchCartItems и isLoggedIn
 
-                                return (
-                                    <div key={item.product.id} className="flex items-center py-4">
-                                        <img
-                                            src={imageUrl}
-                                            alt={item.product.name}
-                                            className="w-20 h-20 object-cover rounded-md mr-4 shadow-sm"
-                                            onError={(e) => {
-                                                console.error(`Ошибка загрузки изображения в корзине для ${item.product.name}: ${e.target.src}`);
-                                                e.target.onerror = null;
-                                                e.target.src = 'https://placehold.co/80x80/6b7280/ffffff?text=Img';
-                                            }}
-                                        />
-                                        <div className="flex-grow">
-                                            <h3 className="text-lg font-semibold text-gray-900">{item.product.name}</h3>
-                                            <p className="text-gray-600">${item.product.price.toFixed(2)} за шт.</p>
-                                        </div>
-                                        <div className="flex items-center">
-                                            <button
-                                                onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
-                                                className="bg-gray-200 text-gray-700 px-3 py-1 rounded-l-md hover:bg-gray-300 transition-colors duration-200"
-                                            >
-                                                -
-                                            </button>
-                                            <span className="bg-gray-100 text-gray-800 px-4 py-1 border-y border-gray-300">{item.quantity}</span>
-                                            <button
-                                                onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
-                                                className="bg-gray-200 text-gray-700 px-3 py-1 rounded-r-md hover:bg-gray-300 transition-colors duration-200"
-                                            >
-                                                +
-                                            </button>
-                                            <button
-                                                onClick={() => removeFromCart(item.product.id)}
-                                                className="ml-4 bg-red-500 text-white px-3 py-1 rounded-md hover:bg-red-600 transition-colors duration-200 text-sm"
-                                            >
-                                                Удалить
-                                            </button>
-                                        </div>
-                                        <span className="ml-8 text-xl font-bold text-indigo-700">
-                                            ${(item.product.price * item.quantity).toFixed(2)}
-                                        </span>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                        <div className="mt-8 pt-4 border-t-2 border-gray-200 flex justify-end items-center">
-                            <span className="text-2xl font-bold text-gray-800 mr-4">Итого:</span>
-                            <span className="text-3xl font-extrabold text-indigo-800">${total.toFixed(2)}</span>
-                        </div>
-                        <div className="mt-6 text-right">
-                            <button className="bg-green-600 text-white font-bold py-3 px-8 rounded-full shadow-lg hover:bg-green-700 transform hover:scale-105 transition duration-300 ease-in-out focus:outline-none focus:ring-4 focus:ring-green-500 focus:ring-opacity-70 text-lg">
-                                Оформить Заказ
-                            </button>
-                        </div>
-                    </div>
-                )}
+  const handleQuantityChange = async (cartItemId, currentQuantity, delta) => {
+    const newQuantity = currentQuantity + delta;
+    if (newQuantity >= 0) { // Позволяем уменьшать до 0 для удаления
+      await updateCartItemQuantity(cartItemId, newQuantity);
+    }
+  };
+
+  const calculateTotalPrice = () => {
+    return cartItems.reduce((total, item) => total + (item.productPrice * item.quantity), 0).toFixed(2);
+  };
+
+  if (loading) {
+    return <div className="text-center text-gray-600">Загрузка корзины...</div>;
+  }
+
+  if (error) {
+    return <div className="text-center text-red-500">{error}</div>;
+  }
+
+  if (!isLoggedIn) { // Дополнительная проверка на isLoggedIn для отображения сообщения
+    return <div className="text-center text-gray-600">Пожалуйста, войдите, чтобы просмотреть и управлять вашей корзиной.</div>;
+  }
+
+  if (cartItems.length === 0) {
+    return <div className="text-center text-gray-600">Ваша корзина пуста.</div>;
+  }
+
+  return (
+    <div className="container mx-auto p-4">
+      <h2 className="text-3xl font-bold mb-6 text-gray-800 text-center">Ваша Корзина</h2>
+      <div className="bg-white shadow-lg rounded-lg p-6">
+        {cartItems.map(item => (
+          <div key={item.id} className="flex items-center justify-between border-b border-gray-200 py-4 last:border-b-0">
+            <div className="flex items-center space-x-4">
+              {/* Отображение изображения товара, если оно есть */}
+              {item.primaryImageUrl && (
+                <img
+                  src={item.primaryImageUrl}
+                  alt={item.productName}
+                  className="w-20 h-20 object-cover rounded-md"
+                  onError={(e) => { e.target.onerror = null; e.target.src = 'https://placehold.co/80x80/e0e0e0/ffffff?text=No+Image'; }}
+                />
+              )}
+              <div>
+                <h3 className="text-lg font-semibold text-gray-800">{item.productName}</h3>
+                <p className="text-gray-600 text-sm">{item.designName} ({item.baseColorName})</p>
+                <p className="text-gray-700 font-medium">{item.productPrice.toFixed(2)} ₽</p>
+              </div>
             </div>
-        </section>
-    );
-};
+            <div className="flex items-center space-x-4">
+              <div className="flex items-center border border-gray-300 rounded-md">
+                <button
+                  onClick={() => handleQuantityChange(item.id, item.quantity, -1)}
+                  className="p-2 text-gray-600 hover:bg-gray-100 rounded-l-md"
+                >
+                  <Minus size={16} />
+                </button>
+                <span className="px-3 text-lg font-medium">{item.quantity}</span>
+                <button
+                  onClick={() => handleQuantityChange(item.id, item.quantity, 1)}
+                  className="p-2 text-gray-600 hover:bg-gray-100 rounded-r-md"
+                >
+                  <Plus size={16} />
+                </button>
+              </div>
+              <button
+                onClick={() => removeFromCart(item.id)}
+                className="p-2 text-red-500 hover:bg-red-100 rounded-md"
+              >
+                <Trash2 size={20} />
+              </button>
+            </div>
+          </div>
+        ))}
+        <div className="flex justify-end items-center mt-6">
+          <p className="text-xl font-bold text-gray-800">Итого: {calculateTotalPrice()} ₽</p>
+          <button className="ml-4 bg-green-600 text-white py-3 px-6 rounded-md hover:bg-green-700 transition duration-300">
+            Оформить заказ
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export default CartPage;
