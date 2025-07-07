@@ -1,3 +1,4 @@
+// MerchShop.WebAPI/Services/TokenService.cs
 using MerchShop.Core.Models;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
@@ -17,8 +18,6 @@ namespace MerchShop.WebAPI.Services
         public TokenService(IConfiguration configuration)
         {
             _configuration = configuration;
-            // Ключ должен быть достаточно длинным и храниться безопасно (например, в user secrets или Azure Key Vault)
-            // Для разработки можно использовать appsettings.json
             _key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_configuration["Jwt:Key"]));
         }
 
@@ -30,8 +29,8 @@ namespace MerchShop.WebAPI.Services
                 new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString()),
                 new Claim(ClaimTypes.NameIdentifier, user.Id.ToString()),
                 new Claim(ClaimTypes.Email, user.Email),
-                new Claim(ClaimTypes.GivenName, user.FirstName)
-                // Добавьте другие клеймы, если нужны (например, роли)
+                new Claim(ClaimTypes.GivenName, user.FirstName),
+                new Claim(ClaimTypes.Name, user.Email) // Добавлено: Явно добавляем ClaimTypes.Name
             };
 
             var creds = new SigningCredentials(_key, SecurityAlgorithms.HmacSha256);
@@ -40,7 +39,7 @@ namespace MerchShop.WebAPI.Services
                 issuer: _configuration["Jwt:Issuer"],
                 audience: _configuration["Jwt:Audience"],
                 claims: claims,
-                expires: DateTime.UtcNow.AddMinutes(15), // Access Token действует 15 минут
+                expires: DateTime.UtcNow.AddMinutes(60), // Access Token действует 60 минут
                 signingCredentials: creds
             );
 
