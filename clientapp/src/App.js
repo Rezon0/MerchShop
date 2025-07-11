@@ -1,15 +1,16 @@
 // App.js
-import React, { useState, useEffect, createContext, useContext, useCallback } from 'react'; // Добавлен useCallback
+import React, { useState, useEffect, createContext, useContext, useCallback } from 'react';
 import { BrowserRouter as Router, Route, Routes, Link, useNavigate } from 'react-router-dom';
-import ProductCard from './components/ProductCard'; // ProductCard в папке components
-import LoginPage from './pages/LoginPage'; // LoginPage в папке pages
-import RegisterPage from './pages/RegisterPage'; // RegisterPage в папке pages
-import CartPage from './pages/CartPage'; // CartPage в папке pages
-import ProfilePage from './pages/ProfilePage'; // ProfilePage в папке pages
-import OrderHistoryPage from './pages/OrderHistoryPage'; // OrderHistoryPage в папке pages
-import './App.css'; // Добавьте ваш CSS файл, если он есть
-import { ShoppingCart, User, LogOut, Package, Home } from 'lucide-react'; // Импорт иконок
-import { jwtDecode } from 'jwt-decode'; // Импорт jwt-decode
+import ProductCard from './components/ProductCard';
+import LoginPage from './pages/LoginPage';
+import RegisterPage from './pages/RegisterPage';
+import CartPage from './pages/CartPage';
+import ProfilePage from './pages/ProfilePage';
+import OrderHistoryPage from './pages/OrderHistoryPage';
+import CheckoutPage from './pages/CheckoutPage'; // Импорт новой страницы
+import './App.css';
+import { ShoppingCart, User, LogOut, Package, Home } from 'lucide-react';
+import { jwtDecode } from 'jwt-decode';
 
 // Контекст для аутентификации
 export const AuthContext = createContext(null);
@@ -95,7 +96,6 @@ function App() {
       if (!response.ok) {
         if (response.status === 401) {
           console.error('Unauthorized access to cart. Token might be expired or invalid. Logging out.');
-          handleLogout();
         }
         const errorData = await response.json();
         console.error('Error adding to cart:', errorData.message || `HTTP error! Status: ${response.status}`);
@@ -248,7 +248,7 @@ function App() {
               {isLoggedIn ? (
                 <>
                   <Link to="/cart" className="text-gray-600 hover:text-gray-900 flex items-center">
-                    <ShoppingCart className="mr-1" size={20} /> Корзина ({totalCartQuantity}) {/* ИЗМЕНЕНО: cartItems.length на totalCartQuantity */}
+                    <ShoppingCart className="mr-1" size={20} /> Корзина ({totalCartQuantity})
                   </Link>
                   <Link to="/profile" className="text-gray-600 hover:text-gray-900 flex items-center">
                     <User className="mr-1" size={20} /> Профиль
@@ -279,6 +279,7 @@ function App() {
               <Route path="/cart" element={<CartPage API_BASE_URL={API_BASE_URL} />} />
               <Route path="/profile" element={<ProfilePage API_BASE_URL={API_BASE_URL} />} />
               <Route path="/orders" element={<OrderHistoryPage API_BASE_URL={API_BASE_URL} />} />
+              <Route path="/checkout" element={<CheckoutPage API_BASE_URL={API_BASE_URL} />} /> {/* НОВЫЙ МАРШРУТ */}
               <Route path="/login" element={<LoginPage API_BASE_URL={API_BASE_URL} />} />
               <Route path="/register" element={<RegisterPage API_BASE_URL={API_BASE_URL} />} />
             </Routes>
