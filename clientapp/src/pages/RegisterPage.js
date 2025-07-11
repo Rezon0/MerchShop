@@ -18,6 +18,7 @@ function RegisterPage({ API_BASE_URL }) {
   });
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [validationErrors, setValidationErrors] = useState([]);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -25,6 +26,11 @@ function RegisterPage({ API_BASE_URL }) {
       ...prev,
       [name]: type === 'checkbox' ? checked : value,
     }));
+    
+    // Сбрасываем ошибки при изменении полей
+    if (name === 'password' || name === 'confirmPassword') {
+      setValidationErrors([]);
+    }
   };
 
   const handlePhoneChange = (e) => {
@@ -59,33 +65,51 @@ function RegisterPage({ API_BASE_URL }) {
     }));
   };
 
-  const validatePhone = (phone) => {
-    const cleanPhone = phone.replace(/\D/g, '');
-    return cleanPhone.length === 11;
+  const validateForm = () => {
+    const errors = [];
+    
+    // Проверка обязательных полей
+    if (!formData.lastName) errors.push('Фамилия обязательна');
+    if (!formData.firstName) errors.push('Имя обязательно');
+    if (!formData.dateOfBirth) errors.push('Дата рождения обязательна');
+    if (!formData.email) errors.push('Email обязателен');
+    
+    // Проверка паролей
+    if (!formData.password) {
+      errors.push('Пароль обязателен');
+    } else if (formData.password.length < 6) {
+      errors.push('Пароль должен быть не менее 6 символов');
+    }
+    
+    if (!formData.confirmPassword) {
+      errors.push('Подтверждение пароля обязательно');
+    } else if (formData.password !== formData.confirmPassword) {
+      errors.push('Пароли не совпадают');
+    }
+    
+    // Проверка телефона
+    const cleanPhone = formData.phone.replace(/\D/g, '');
+    if (!cleanPhone) {
+      errors.push('Телефон обязателен');
+    } else if (cleanPhone.length !== 11) {
+      errors.push('Телефон должен содержать 11 цифр');
+    }
+    
+    // Проверка согласия
+    if (!formData.gdprConsent) {
+      errors.push('Необходимо согласие с обработкой персональных данных');
+    }
+    
+    setValidationErrors(errors);
+    return errors.length === 0;
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
     setSuccess('');
-
-    if (!validatePhone(formData.phone)) {
-      setError('Введите корректный номер телефона (11 цифр)');
-      return;
-    }
-
-    if (formData.password !== formData.confirmPassword) {
-      setError('Пароли не совпадают!');
-      return;
-    }
-
-    if (formData.password.length < 6) {
-      setError('Пароль должен быть не менее 6 символов.');
-      return;
-    }
-
-    if (!formData.gdprConsent) {
-      setError('Вы должны согласиться с условиями обработки персональных данных.');
+    
+    if (!validateForm()) {
       return;
     }
 
@@ -95,14 +119,17 @@ function RegisterPage({ API_BASE_URL }) {
         firstName: formData.firstName,
         middleName: formData.middleName || null,
         dateOfBirth: formData.dateOfBirth ? new Date(formData.dateOfBirth).toISOString() : null,
-        phone: formData.phone.replace(/\D/g, ''), // Отправляем номер без маски
+        phone: formData.phone.replace(/\D/g, ''),
         email: formData.email,
         password: formData.password,
+        confirmPassword: formData.confirmPassword,
+        gdprConsent: formData.gdprConsent,
       };
 
       const response = await axios.post(`${API_BASE_URL}/Auth/register`, payload);
-      setSuccess(response.data.message);
+      setSuccess(response.data.message || 'Регистрация прошла успешно!');
       
+      // Очищаем форму
       setFormData({
         lastName: '',
         firstName: '',
@@ -115,36 +142,21 @@ function RegisterPage({ API_BASE_URL }) {
         gdprConsent: false,
       });
 
-      setTimeout(() => {
-        navigate('/login');
-      }, 2000);
+      // Перенаправляем на страницу входа через 2 секунды
+      setTimeout(() => navigate('/login'), 2000);
 
     } catch (err) {
       console.error('Ошибка регистрации:', err);
-
-      if (axios.isAxiosError(err) && err.response && err.response.data) {
-        if (err.response.data.message) {
+      
+      if (axios.isAxiosError(err) && err.response) {
+        // Обработка ошибок валидации от сервера
+        if (err.response.data.errors) {
+          const serverErrors = Object.values(err.response.data.errors).flat();
+          setError(serverErrors.join(', '));
+        } else if (err.response.data.message) {
           setError(err.response.data.message);
-        } else if (err.response.data.errors) {
-          const validationErrors = [];
-          for (const key in err.response.data.errors) {
-            if (err.response.data.errors.hasOwnProperty(key)) {
-              if (Array.isArray(err.response.data.errors[key])) {
-                validationErrors.push(...err.response.data.errors[key]);
-              } else {
-                validationErrors.push(err.response.data.errors[key]);
-              }
-            }
-          }
-          if (validationErrors.length > 0) {
-            setError(`Ошибка валидации: ${validationErrors.join(', ')}`);
-          } else if (err.response.data.title) {
-            setError(err.response.data.title);
-          } else {
-            setError('Произошла ошибка валидации на сервере.');
-          }
         } else {
-          setError('Произошла ошибка при регистрации. Пожалуйста, попробуйте еще раз.');
+          setError('Произошла ошибка при регистрации');
         }
       } else {
         setError('Ошибка сети или сервера. Пожалуйста, попробуйте позже.');
@@ -156,20 +168,37 @@ function RegisterPage({ API_BASE_URL }) {
     <section className="py-12 px-4 bg-gray-100 min-h-screen flex items-center justify-center">
       <div className="bg-white rounded-xl shadow-lg p-8 md:p-12 max-w-md w-full">
         <h2 className="text-4xl font-bold text-gray-800 mb-8 text-center">Регистрация</h2>
+        
+        {/* Сообщения об ошибках */}
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6" role="alert">
             <span className="block sm:inline">{error}</span>
           </div>
         )}
+        
+        {/* Сообщения об успехе */}
         {success && (
           <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-6" role="alert">
             <span className="block sm:inline">{success}</span>
           </div>
         )}
+        
+        {/* Ошибки валидации */}
+        {validationErrors.length > 0 && (
+          <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6" role="alert">
+            <ul className="list-disc pl-5">
+              {validationErrors.map((err, index) => (
+                <li key={index}>{err}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Поле фамилии */}
           <div>
             <label htmlFor="lastName" className="block text-gray-700 text-sm font-bold mb-2">
-              Фамилия:
+              Фамилия: *
             </label>
             <input
               type="text"
@@ -181,9 +210,11 @@ function RegisterPage({ API_BASE_URL }) {
               required
             />
           </div>
+          
+          {/* Поле имени */}
           <div>
             <label htmlFor="firstName" className="block text-gray-700 text-sm font-bold mb-2">
-              Имя:
+              Имя: *
             </label>
             <input
               type="text"
@@ -195,9 +226,11 @@ function RegisterPage({ API_BASE_URL }) {
               required
             />
           </div>
+          
+          {/* Поле отчества */}
           <div>
             <label htmlFor="middleName" className="block text-gray-700 text-sm font-bold mb-2">
-              Отчество (необязательно):
+              Отчество:
             </label>
             <input
               type="text"
@@ -208,9 +241,11 @@ function RegisterPage({ API_BASE_URL }) {
               className="shadow appearance-none border rounded w-full py-3 px-4 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200"
             />
           </div>
+          
+          {/* Поле даты рождения */}
           <div>
             <label htmlFor="dateOfBirth" className="block text-gray-700 text-sm font-bold mb-2">
-              Дата рождения:
+              Дата рождения: *
             </label>
             <input
               type="date"
@@ -222,9 +257,11 @@ function RegisterPage({ API_BASE_URL }) {
               required
             />
           </div>
+          
+          {/* Поле телефона с маской */}
           <div>
             <label htmlFor="phone" className="block text-gray-700 text-sm font-bold mb-2">
-              Телефон:
+              Телефон: *
             </label>
             <input
               type="tel"
@@ -238,9 +275,11 @@ function RegisterPage({ API_BASE_URL }) {
             />
             <p className="text-xs text-gray-500 mt-1">Формат: +7 (XXX) XXX-XX-XX</p>
           </div>
+          
+          {/* Поле email */}
           <div>
             <label htmlFor="email" className="block text-gray-700 text-sm font-bold mb-2">
-              Email:
+              Email: *
             </label>
             <input
               type="email"
@@ -252,9 +291,11 @@ function RegisterPage({ API_BASE_URL }) {
               required
             />
           </div>
+          
+          {/* Поле пароля */}
           <div>
             <label htmlFor="password" className="block text-gray-700 text-sm font-bold mb-2">
-              Пароль:
+              Пароль: *
             </label>
             <input
               type="password"
@@ -266,9 +307,11 @@ function RegisterPage({ API_BASE_URL }) {
               required
             />
           </div>
+          
+          {/* Поле подтверждения пароля */}
           <div>
             <label htmlFor="confirmPassword" className="block text-gray-700 text-sm font-bold mb-2">
-              Подтвердите Пароль:
+              Подтвердите пароль: *
             </label>
             <input
               type="password"
@@ -280,6 +323,8 @@ function RegisterPage({ API_BASE_URL }) {
               required
             />
           </div>
+          
+          {/* Чекбокс согласия */}
           <div className="flex items-center">
             <input
               type="checkbox"
@@ -291,9 +336,11 @@ function RegisterPage({ API_BASE_URL }) {
               required
             />
             <label htmlFor="gdprConsent" className="text-gray-700 text-sm">
-              Я согласен с условиями обработки персональных данных (GDPR)
+              Я согласен с условиями обработки персональных данных (GDPR) *
             </label>
           </div>
+          
+          {/* Кнопка отправки формы */}
           <button
             type="submit"
             className="bg-indigo-600 text-white font-bold py-3 px-6 rounded-full hover:bg-indigo-700 transition duration-300 ease-in-out focus:outline-none focus:ring-4 focus:ring-indigo-500 focus:ring-opacity-70 w-full"
@@ -301,6 +348,8 @@ function RegisterPage({ API_BASE_URL }) {
             Зарегистрироваться
           </button>
         </form>
+        
+        {/* Ссылка на страницу входа */}
         <p className="mt-8 text-center text-gray-600">
           Уже есть аккаунт?{' '}
           <button
