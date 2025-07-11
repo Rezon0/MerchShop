@@ -1,4 +1,4 @@
-// src/components/OrderHistoryPage.js
+// src/pages/OrderHistoryPage.js
 import React, { useContext, useEffect, useState } from 'react';
 import { AuthContext } from '../App'; // Убедитесь, что путь к App.js корректен
 
@@ -72,26 +72,28 @@ function OrderHistoryPage({ API_BASE_URL }) {
         <div key={order.id} className="bg-white shadow-lg rounded-lg p-6 mb-4">
           <div className="flex justify-between items-center mb-4 border-b pb-2">
             <h3 className="text-xl font-semibold text-gray-800">Заказ #{order.id}</h3>
-            <p className="text-gray-600">Дата: {new Date(order.orderDate).toLocaleDateString()}</p>
+            <p className="text-gray-600">Дата: {new Date(order.creationDateTime).toLocaleDateString()}</p> {/* ИСПРАВЛЕНО: orderDate на creationDateTime */}
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {order.orderItems.map(item => (
-              <div key={item.id} className="flex items-center space-x-4 bg-gray-50 p-3 rounded-md">
-                {item.productDesign?.product?.primaryImageUrl && (
+            {order.items.map(item => { // ИСПРАВЛЕНО: orderItems на items
+              // ИСПРАВЛЕНО: Приоритет PrimaryImageUrl, затем DesignImageUrl
+              const imageUrlToDisplay = item.primaryImageUrl || item.designImageUrl;
+              return (
+                <div key={item.productDesignId} className="flex items-center space-x-4 bg-gray-50 p-3 rounded-md"> {/* ИСПРАВЛЕНО: key на productDesignId */}
                   <img
-                    src={item.productDesign.product.primaryImageUrl}
-                    alt={item.productDesign.product.name}
+                    src={imageUrlToDisplay || 'https://placehold.co/60x60/e0e0e0/ffffff?text=Нет+изображения'} // ИСПРАВЛЕНО: Используем imageUrlToDisplay
+                    alt={item.productName}
                     className="w-16 h-16 object-cover rounded-md"
-                    onError={(e) => { e.target.onerror = null; e.target.src = 'https://placehold.co/60x60/e0e0e0/ffffff?text=No+Image'; }}
+                    onError={(e) => { e.target.onerror = null; e.target.src = 'https://placehold.co/60x60/e0e0e0/ffffff?text=Нет+изображения'; }}
                   />
-                )}
-                <div>
-                  <p className="font-medium text-gray-800">{item.productDesign?.product?.name}</p>
-                  <p className="text-sm text-gray-600">{item.productDesign?.design?.name} ({item.productDesign?.product?.baseColor?.name})</p>
-                  <p className="text-sm text-gray-700">{item.quantity} шт. x {item.priceAtOrder.toFixed(2)} ₽</p>
+                  <div>
+                    <p className="font-medium text-gray-800">{item.productName}</p>
+                    <p className="text-sm text-gray-600">{item.designName} ({item.baseColorName})</p>
+                    <p className="text-sm text-gray-700">{item.quantity} шт. x {item.priceAtOrder.toFixed(2)} ₽</p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
           <div className="text-right mt-4 pt-2 border-t">
             <p className="text-lg font-bold text-gray-800">Итого по заказу: {order.totalAmount.toFixed(2)} ₽</p>
