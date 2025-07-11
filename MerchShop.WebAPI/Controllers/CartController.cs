@@ -7,7 +7,7 @@ using MerchShop.WebAPI.DTOs;
 using System.Security.Claims;
 using Microsoft.EntityFrameworkCore;
 using System.Linq;
-using Microsoft.Extensions.Logging; // Добавлено для ILogger
+using Microsoft.Extensions.Logging;
 
 namespace MerchShop.WebAPI.Controllers
 {
@@ -17,27 +17,26 @@ namespace MerchShop.WebAPI.Controllers
     public class CartController : ControllerBase
     {
         private readonly ApplicationDbContext _context;
-        private readonly ILogger<CartController> _logger; // Добавлено для логирования
+        private readonly ILogger<CartController> _logger;
 
-        public CartController(ApplicationDbContext context, ILogger<CartController> logger) // Внедряем ILogger
+        public CartController(ApplicationDbContext context, ILogger<CartController> logger)
         {
             _context = context;
-            _logger = logger; // Инициализируем логгер
+            _logger = logger;
         }
 
         private int GetCurrentUserId()
         {
-            // Извлекаем UserId из JWT токена
             var userIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
-            _logger.LogInformation("GetCurrentUserId: userIdClaim raw value: '{UserIdClaim}'", userIdClaim ?? "null"); // Логируем значение клейма
+            _logger.LogInformation("GetCurrentUserId: userIdClaim raw value: '{UserIdClaim}'", userIdClaim ?? "null");
 
             if (string.IsNullOrEmpty(userIdClaim) || !int.TryParse(userIdClaim, out int userId))
             {
-                _logger.LogError("GetCurrentUserId: Failed to parse UserId from claim. Claim value: '{UserIdClaim}'", userIdClaim ?? "null"); // Логируем ошибку парсинга
+                _logger.LogError("GetCurrentUserId: Failed to parse UserId from claim. Claim value: '{UserIdClaim}'", userIdClaim ?? "null");
                 throw new UnauthorizedAccessException("Не удалось определить ID пользователя.");
             }
-            _logger.LogInformation("GetCurrentUserId: Successfully parsed UserId: {UserId}", userId); // Логируем успешное получение ID
+            _logger.LogInformation("GetCurrentUserId: Successfully parsed UserId: {UserId}", userId);
             return userId;
         }
 
@@ -56,14 +55,14 @@ namespace MerchShop.WebAPI.Controllers
                     .Where(ci => ci.UserId == userId)
                     .Include(ci => ci.ProductDesign)
                         .ThenInclude(pd => pd.Product)
-                            .ThenInclude(p => p.BaseColor) // Включаем BaseColor для Product
+                            .ThenInclude(p => p.BaseColor)
                     .Include(ci => ci.ProductDesign)
-                        .ThenInclude(pd => pd.Design) // Включаем Design для ProductDesign
+                        .ThenInclude(pd => pd.Design) // Убедитесь, что Design включен
                     .ToListAsync();
 
                 if (!cartItems.Any())
                 {
-                    return Ok(new List<CartItemResponse>()); // Возвращаем пустой список, если корзина пуста
+                    return Ok(new List<CartItemResponse>());
                 }
 
                 var response = cartItems.Select(ci => new CartItemResponse
@@ -72,12 +71,14 @@ namespace MerchShop.WebAPI.Controllers
                     ProductDesignId = ci.ProductDesignId,
                     ProductId = ci.ProductDesign.ProductId,
                     ProductName = ci.ProductDesign.Product.Name,
-                    ProductPrice = ci.ProductDesign.Product.Price, // Цена из Product
+                    ProductPrice = ci.ProductDesign.Product.Price,
                     DesignName = ci.ProductDesign.Design.Name,
                     BaseColorName = ci.ProductDesign.Product.BaseColor.Name,
-                    PrimaryImageUrl = ci.ProductDesign.Product.PrimaryImageUrl, // Если есть URL изображения
+                    PrimaryImageUrl = ci.ProductDesign.Product.PrimaryImageUrl,
+                    DesignImageUrl = ci.ProductDesign.Design?.ImageUrl, // НОВОЕ: Передаем URL изображения дизайна
                     Quantity = ci.Quantity,
-                    PriceAtOrder = ci.ProductDesign.PriceAtOrder, // Цена ProductDesign
+                    StockQuantity = ci.ProductDesign.Quantity,
+                    PriceAtOrder = ci.ProductDesign.PriceAtOrder,
                     AddedDate = ci.AddedDate
                 }).ToList();
 
@@ -105,7 +106,6 @@ namespace MerchShop.WebAPI.Controllers
         {
             if (!ModelState.IsValid)
             {
-                // Логируем ошибки ModelState
                 foreach (var modelStateEntry in ModelState.Values)
                 {
                     foreach (var error in modelStateEntry.Errors)
@@ -120,11 +120,10 @@ namespace MerchShop.WebAPI.Controllers
             {
                 var userId = GetCurrentUserId();
 
-                // Проверяем существование ProductDesign
                 var productDesign = await _context.ProductDesigns
-                    .Include(pd => pd.Product) // Включаем Product для доступа к Name, Price, PrimaryImageUrl
-                    .Include(pd => pd.Design) // Включаем Design для Design.Name
-                    .Include(pd => pd.Product.BaseColor) // Включаем BaseColor для BaseColor.Name
+                    .Include(pd => pd.Product)
+                    .Include(pd => pd.Design)
+                    .Include(pd => pd.Product.BaseColor)
                     .FirstOrDefaultAsync(pd => pd.Id == request.ProductDesignId);
 
                 if (productDesign == null)
@@ -137,37 +136,42 @@ namespace MerchShop.WebAPI.Controllers
                     return BadRequest(new { message = "Данный товар-дизайн недоступен для заказа." });
                 }
 
-                // Проверяем, есть ли уже такой товар в корзине пользователя
                 var existingCartItem = await _context.CartItems
                     .Where(ci => ci.UserId == userId && ci.ProductDesignId == request.ProductDesignId)
                     .FirstOrDefaultAsync();
 
+                int newTotalQuantityInCart = request.Quantity;
                 if (existingCartItem != null)
                 {
-                    // Если товар уже есть, обновляем количество
-                    existingCartItem.Quantity += request.Quantity;
+                    newTotalQuantityInCart += existingCartItem.Quantity;
+                }
+
+                // Проверка на достаточное количество на складе перед добавлением/обновлением
+                if (productDesign.Quantity < newTotalQuantityInCart)
+                {
+                    return BadRequest(new { message = $"На складе недостаточно товара '{productDesign.Product.Name} - {productDesign.Design.Name}'. Доступно: {productDesign.Quantity} шт." });
+                }
+
+
+                if (existingCartItem != null)
+                {
+                    existingCartItem.Quantity = newTotalQuantityInCart;
                     _context.CartItems.Update(existingCartItem);
                 }
                 else
                 {
-                    // Если товара нет, создаем новый элемент корзины
                     var newCartItem = new CartItem
                     {
                         ProductDesignId = request.ProductDesignId,
                         UserId = userId,
                         Quantity = request.Quantity,
                         AddedDate = DateTime.UtcNow,
-                        // PriceAtOrder берется из ProductDesign, так как это цена конкретной комбинации
-                        // В модели CartItem нет PriceAtOrder, но ProductDesign имеет PriceAtOrder.
-                        // Мы будем использовать ProductDesign.PriceAtOrder для ProductDesignOrder.
-                        // Для CartItemResponse мы можем использовать ProductDesign.PriceAtOrder для отображения.
                     };
                     _context.CartItems.Add(newCartItem);
                 }
 
                 await _context.SaveChangesAsync();
 
-                // Для ответа получаем обновленный/добавленный элемент корзины с полной информацией
                 var updatedCartItem = await _context.CartItems
                     .Where(ci => ci.UserId == userId && ci.ProductDesignId == request.ProductDesignId)
                     .Include(ci => ci.ProductDesign)
@@ -187,8 +191,10 @@ namespace MerchShop.WebAPI.Controllers
                     DesignName = updatedCartItem.ProductDesign.Design.Name,
                     BaseColorName = updatedCartItem.ProductDesign.Product.BaseColor.Name,
                     PrimaryImageUrl = updatedCartItem.ProductDesign.Product.PrimaryImageUrl,
+                    DesignImageUrl = updatedCartItem.ProductDesign.Design?.ImageUrl, // НОВОЕ: Передаем URL изображения дизайна
                     Quantity = updatedCartItem.Quantity,
-                    PriceAtOrder = updatedCartItem.ProductDesign.PriceAtOrder, // Используем PriceAtOrder из ProductDesign
+                    StockQuantity = updatedCartItem.ProductDesign.Quantity,
+                    PriceAtOrder = updatedCartItem.ProductDesign.PriceAtOrder,
                     AddedDate = updatedCartItem.AddedDate
                 };
 
@@ -217,7 +223,6 @@ namespace MerchShop.WebAPI.Controllers
         {
             if (!ModelState.IsValid)
             {
-                // Логируем ошибки ModelState
                 foreach (var modelStateEntry in ModelState.Values)
                 {
                     foreach (var error in modelStateEntry.Errors)
@@ -246,6 +251,12 @@ namespace MerchShop.WebAPI.Controllers
                     return NotFound(new { message = "Элемент корзины не найден или не принадлежит текущему пользователю." });
                 }
 
+                // Проверка на достаточное количество на складе при обновлении
+                if (request.NewQuantity > 0 && cartItem.ProductDesign.Quantity < request.NewQuantity)
+                {
+                    return BadRequest(new { message = $"На складе недостаточно товара '{cartItem.ProductDesign.Product.Name} - {cartItem.ProductDesign.Design.Name}'. Доступно: {cartItem.ProductDesign.Quantity} шт." });
+                }
+
                 if (request.NewQuantity <= 0)
                 {
                     _context.CartItems.Remove(cartItem);
@@ -268,7 +279,9 @@ namespace MerchShop.WebAPI.Controllers
                         DesignName = cartItem.ProductDesign.Design.Name,
                         BaseColorName = cartItem.ProductDesign.Product.BaseColor.Name,
                         PrimaryImageUrl = cartItem.ProductDesign.Product.PrimaryImageUrl,
+                        DesignImageUrl = cartItem.ProductDesign.Design?.ImageUrl, // НОВОЕ: Передаем URL изображения дизайна
                         Quantity = cartItem.Quantity,
+                        StockQuantity = cartItem.ProductDesign.Quantity,
                         PriceAtOrder = cartItem.ProductDesign.PriceAtOrder,
                         AddedDate = cartItem.AddedDate
                     };
@@ -320,8 +333,8 @@ namespace MerchShop.WebAPI.Controllers
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Internal server error in RemoveFromCart: {Message}", ex.Message);
-                return StatusCode(500, new { message = $"Внутренняя ошибка сервера: {ex.Message}" });
+                    _logger.LogError(ex, "Internal server error in RemoveFromCart: {Message}", ex.Message);
+                    return StatusCode(500, new { message = $"Внутренняя ошибка сервера: {ex.Message}" });
             }
         }
     }
