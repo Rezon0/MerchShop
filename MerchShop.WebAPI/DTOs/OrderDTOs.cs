@@ -1,17 +1,18 @@
 // MerchShop.WebAPI/DTOs/OrderDTOs.cs
-using System; // Добавлено: Для DateTime
-using System.Collections.Generic; // Добавлено: Для ICollection
+using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
-
 
 namespace MerchShop.WebAPI.DTOs
 {
-    // DTO для создания заказа
-    public class CreateOrderRequest
+    // DTO для запроса на оформление заказа с фронтенда
+    public class PlaceOrderRequest
     {
-        [Required(ErrorMessage = "PaymentMethodId обязателен.")]
-        public int PaymentMethodId { get; set; }
-        // Можно добавить дополнительные поля, если они будут нужны для создания заказа (например, адрес доставки)
+        [Required(ErrorMessage = "Список ID товаров корзины обязателен.")]
+        public List<int> CartItemIds { get; set; } // Список ID элементов корзины, которые нужно оформить
+
+        [Required(ErrorMessage = "Метод оплаты обязателен.")]
+        public string PaymentMethod { get; set; } // Строковое представление метода оплаты (например, "PaymentOnDelivery", "OnlinePayment")
     }
 
     // DTO для элемента заказа (внутри ответа о заказе)
@@ -21,7 +22,8 @@ namespace MerchShop.WebAPI.DTOs
         public string ProductName { get; set; } = string.Empty;
         public string DesignName { get; set; } = string.Empty;
         public string BaseColorName { get; set; } = string.Empty;
-        public string? PrimaryImageUrl { get; set; }
+        public string? PrimaryImageUrl { get; set; } // Изображение товара
+        public string? DesignImageUrl { get; set; } // НОВОЕ ПОЛЕ: Изображение дизайна
         public int Quantity { get; set; }
         public decimal PriceAtOrder { get; set; }
     }
