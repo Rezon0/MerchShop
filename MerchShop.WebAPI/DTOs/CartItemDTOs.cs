@@ -1,10 +1,11 @@
-// MerchShop.WebAPI/DTOs/CartItemDTOs.cs
-using System; // Добавлено: Для типа DateTime
+// MerchShop.WebAPI/DTOs/CartDTOs.cs
+using System;
+using System.Collections.Generic;
 using System.ComponentModel.DataAnnotations;
 
 namespace MerchShop.WebAPI.DTOs
 {
-    // DTO для добавления товара в корзину
+    // DTO для запроса на добавление товара в корзину
     public class AddCartItemRequest
     {
         [Required(ErrorMessage = "ProductDesignId обязателен.")]
@@ -14,29 +15,31 @@ namespace MerchShop.WebAPI.DTOs
         public int Quantity { get; set; } = 1;
     }
 
-    // DTO для обновления количества товара в корзине
+    // DTO для запроса на обновление количества товара в корзине
     public class UpdateCartItemRequest
     {
         [Required(ErrorMessage = "CartItemId обязателен.")]
         public int CartItemId { get; set; }
 
-        [Range(0, int.MaxValue, ErrorMessage = "Количество не может быть отрицательным.")]
+        [Range(0, int.MaxValue, ErrorMessage = "Новое количество не может быть отрицательным.")]
         public int NewQuantity { get; set; }
     }
 
-    // DTO для ответа с элементом корзины (для отображения на фронтенде)
+    // DTO для ответа с информацией об элементе корзины
     public class CartItemResponse
     {
-        public int Id { get; set; } // ID CartItem
+        public int Id { get; set; }
         public int ProductDesignId { get; set; }
-        public int ProductId { get; set; } // ID продукта
+        public int ProductId { get; set; }
         public string ProductName { get; set; } = string.Empty;
-        public decimal ProductPrice { get; set; } // Цена продукта (из Product)
-        public string DesignName { get; set; } = string.Empty; // Название дизайна
-        public string BaseColorName { get; set; } = string.Empty; // Название цвета основы
-        public string? PrimaryImageUrl { get; set; } // URL изображения продукта
-        public int Quantity { get; set; } // Количество в корзине
-        public decimal PriceAtOrder { get; set; } // Цена ProductDesign на момент добавления в корзину
+        public decimal ProductPrice { get; set; } // Цена из Product
+        public string DesignName { get; set; } = string.Empty;
+        public string BaseColorName { get; set; } = string.Empty;
+        public string? PrimaryImageUrl { get; set; } // Изображение товара
+        public string? DesignImageUrl { get; set; } // НОВОЕ ПОЛЕ: Изображение дизайна
+        public int Quantity { get; set; } // Количество товара в корзине
+        public int StockQuantity { get; set; } // Количество товара на складе
+        public decimal PriceAtOrder { get; set; } // Цена ProductDesign
         public DateTime AddedDate { get; set; }
     }
 }
