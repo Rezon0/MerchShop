@@ -1,5 +1,5 @@
 // App.js
-import React, { useState, useEffect, createContext, useContext, useCallback } from 'react';
+import React, { useState, useEffect, createContext, useContext, useCallback } from 'react'; // Добавлен useCallback
 import { BrowserRouter as Router, Route, Routes, Link, useNavigate } from 'react-router-dom';
 import ProductCard from './components/ProductCard';
 import LoginPage from './pages/LoginPage';
@@ -250,10 +250,18 @@ function App() {
                   <Link to="/cart" className="text-gray-600 hover:text-gray-900 flex items-center">
                     <ShoppingCart className="mr-1" size={20} /> Корзина ({totalCartQuantity})
                   </Link>
-                  <Link to="/profile" className="text-gray-600 hover:text-gray-900 flex items-center">
+                  <Link 
+                    to="/profile" 
+                    className="text-gray-600 hover:text-gray-900 flex items-center"
+                    onClick={() => console.log('Навигация: Клик по Профилю (/profile)')} // Добавлено логирование
+                  >
                     <User className="mr-1" size={20} /> Профиль
                   </Link>
-                  <Link to="/orders" className="text-gray-600 hover:text-gray-900 flex items-center">
+                  <Link 
+                    to="/orders" 
+                    className="text-gray-600 hover:text-gray-900 flex items-center"
+                    onClick={() => console.log('Навигация: Клик по Заказам (/orders)')} // Добавлено логирование
+                  >
                     <Package className="mr-1" size={20} /> Заказы
                   </Link>
                   <button onClick={handleLogout} className="text-gray-600 hover:text-gray-900 flex items-center">
@@ -279,7 +287,7 @@ function App() {
               <Route path="/cart" element={<CartPage API_BASE_URL={API_BASE_URL} />} />
               <Route path="/profile" element={<ProfilePage API_BASE_URL={API_BASE_URL} />} />
               <Route path="/orders" element={<OrderHistoryPage API_BASE_URL={API_BASE_URL} />} />
-              <Route path="/checkout" element={<CheckoutPage API_BASE_URL={API_BASE_URL} />} /> {/* НОВЫЙ МАРШРУТ */}
+              <Route path="/checkout" element={<CheckoutPage API_BASE_URL={API_BASE_URL} />} />
               <Route path="/login" element={<LoginPage API_BASE_URL={API_BASE_URL} />} />
               <Route path="/register" element={<RegisterPage API_BASE_URL={API_BASE_URL} />} />
             </Routes>
