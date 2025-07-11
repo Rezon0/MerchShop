@@ -57,7 +57,8 @@ namespace MerchShop.WebAPI.Controllers
                         .ThenInclude(pd => pd.Product)
                             .ThenInclude(p => p.BaseColor)
                     .Include(ci => ci.ProductDesign)
-                        .ThenInclude(pd => pd.Design) // Убедитесь, что Design включен
+                        .ThenInclude(pd => pd.Design)
+                    .OrderBy(ci => ci.AddedDate) // ИСПРАВЛЕНО: Добавлена сортировка по дате добавления
                     .ToListAsync();
 
                 if (!cartItems.Any())
@@ -75,7 +76,7 @@ namespace MerchShop.WebAPI.Controllers
                     DesignName = ci.ProductDesign.Design.Name,
                     BaseColorName = ci.ProductDesign.Product.BaseColor.Name,
                     PrimaryImageUrl = ci.ProductDesign.Product.PrimaryImageUrl,
-                    DesignImageUrl = ci.ProductDesign.Design?.ImageUrl, // НОВОЕ: Передаем URL изображения дизайна
+                    DesignImageUrl = ci.ProductDesign.Design?.ImageUrl,
                     Quantity = ci.Quantity,
                     StockQuantity = ci.ProductDesign.Quantity,
                     PriceAtOrder = ci.ProductDesign.PriceAtOrder,
@@ -191,7 +192,7 @@ namespace MerchShop.WebAPI.Controllers
                     DesignName = updatedCartItem.ProductDesign.Design.Name,
                     BaseColorName = updatedCartItem.ProductDesign.Product.BaseColor.Name,
                     PrimaryImageUrl = updatedCartItem.ProductDesign.Product.PrimaryImageUrl,
-                    DesignImageUrl = updatedCartItem.ProductDesign.Design?.ImageUrl, // НОВОЕ: Передаем URL изображения дизайна
+                    DesignImageUrl = updatedCartItem.ProductDesign.Design?.ImageUrl,
                     Quantity = updatedCartItem.Quantity,
                     StockQuantity = updatedCartItem.ProductDesign.Quantity,
                     PriceAtOrder = updatedCartItem.ProductDesign.PriceAtOrder,
@@ -279,7 +280,7 @@ namespace MerchShop.WebAPI.Controllers
                         DesignName = cartItem.ProductDesign.Design.Name,
                         BaseColorName = cartItem.ProductDesign.Product.BaseColor.Name,
                         PrimaryImageUrl = cartItem.ProductDesign.Product.PrimaryImageUrl,
-                        DesignImageUrl = cartItem.ProductDesign.Design?.ImageUrl, // НОВОЕ: Передаем URL изображения дизайна
+                        DesignImageUrl = cartItem.ProductDesign.Design?.ImageUrl,
                         Quantity = cartItem.Quantity,
                         StockQuantity = cartItem.ProductDesign.Quantity,
                         PriceAtOrder = cartItem.ProductDesign.PriceAtOrder,
