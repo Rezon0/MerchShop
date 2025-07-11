@@ -33,12 +33,12 @@ namespace MerchShop.WebAPI.Controllers
         }
 
         /// <summary>
-        /// Создает новый заказ из содержимого корзины текущего пользователя.
+        /// Создает новый заказ из выбранных элементов корзины текущего пользователя.
         /// </summary>
-        /// <param name="request">Данные для создания заказа (например, PaymentMethodId).</param>
+        /// <param name="request">Данные для создания заказа (список ID элементов корзины и метод оплаты).</param>
         /// <returns>Созданный заказ или сообщение об ошибке.</returns>
-        [HttpPost]
-        public async Task<ActionResult<OrderResponse>> CreateOrder([FromBody] CreateOrderRequest request)
+        [HttpPost("place-order")]
+        public async Task<ActionResult<OrderResponse>> PlaceOrder([FromBody] PlaceOrderRequest request)
         {
             if (!ModelState.IsValid)
             {
@@ -50,9 +50,8 @@ namespace MerchShop.WebAPI.Controllers
             {
                 var userId = GetCurrentUserId();
 
-                // 1. Получаем элементы корзины пользователя
                 var cartItems = await _context.CartItems
-                    .Where(ci => ci.UserId == userId)
+                    .Where(ci => ci.UserId == userId && request.CartItemIds.Contains(ci.Id))
                     .Include(ci => ci.ProductDesign)
                         .ThenInclude(pd => pd.Product)
                     .Include(ci => ci.ProductDesign)
@@ -63,10 +62,9 @@ namespace MerchShop.WebAPI.Controllers
 
                 if (!cartItems.Any())
                 {
-                    return BadRequest(new { message = "Корзина пользователя пуста." });
+                    return BadRequest(new { message = "Не выбраны товары для оформления заказа или они не найдены в вашей корзине." });
                 }
 
-                // 2. Проверяем доступность товаров и рассчитываем общую сумму
                 decimal totalAmount = 0;
                 foreach (var item in cartItems)
                 {
@@ -78,37 +76,59 @@ namespace MerchShop.WebAPI.Controllers
                     totalAmount += item.Quantity * item.ProductDesign.PriceAtOrder;
                 }
 
-                // 3. Проверяем существование метода оплаты
-                var paymentMethod = await _context.PaymentMethods.FindAsync(request.PaymentMethodId);
-                if (paymentMethod == null)
+                int? paymentMethodId = null;
+                if (request.PaymentMethod == "PaymentOnDelivery")
+                {
+                    var paymentOnDelivery = await _context.PaymentMethods.FirstOrDefaultAsync(pm => pm.Name == "Оплата при получении");
+                    if (paymentOnDelivery == null)
+                    {
+                        paymentOnDelivery = new PaymentMethod { Name = "Оплата при получении" };
+                        _context.PaymentMethods.Add(paymentOnDelivery);
+                        await _context.SaveChangesAsync();
+                    }
+                    paymentMethodId = paymentOnDelivery.Id;
+                }
+                else if (request.PaymentMethod == "OnlinePayment")
+                {
+                    var onlinePayment = await _context.PaymentMethods.FirstOrDefaultAsync(pm => pm.Name == "Онлайн оплата");
+                    if (onlinePayment == null)
+                    {
+                        onlinePayment = new PaymentMethod { Name = "Онлайн оплата" };
+                        _context.PaymentMethods.Add(onlinePayment);
+                        await _context.SaveChangesAsync();
+                    }
+                    paymentMethodId = onlinePayment.Id;
+                }
+                else
                 {
                     await transaction.RollbackAsync();
-                    return NotFound(new { message = "Указанный метод оплаты не найден." });
+                    return BadRequest(new { message = "Неверный метод оплаты." });
                 }
 
-                // 4. Получаем или создаем статус "В обработке"
+                if (!paymentMethodId.HasValue)
+                {
+                    await transaction.RollbackAsync();
+                    return BadRequest(new { message = "Не удалось определить метод оплаты." });
+                }
+
                 var initialStatus = await _context.Statuses.FirstOrDefaultAsync(s => s.Name == "В обработке");
                 if (initialStatus == null)
                 {
-                    // Если статуса нет, можно создать его или вернуть ошибку
                     initialStatus = new Status { Name = "В обработке" };
                     _context.Statuses.Add(initialStatus);
-                    await _context.SaveChangesAsync(); // Сохраняем статус, чтобы получить его ID
+                    await _context.SaveChangesAsync();
                 }
 
-                // 5. Создаем новый заказ
                 var order = new Order
                 {
                     UserId = userId,
                     StatusId = initialStatus.Id,
-                    PaymentMethodId = request.PaymentMethodId,
+                    PaymentMethodId = paymentMethodId.Value,
                     CreationDateTime = DateTime.UtcNow,
-                    // CompletionDateTime будет null по умолчанию
                 };
                 _context.Orders.Add(order);
-                await _context.SaveChangesAsync(); // Сохраняем заказ, чтобы получить его ID
+                await _context.SaveChangesAsync();
 
-                // 6. Создаем элементы заказа на основе элементов корзины
                 var productDesignOrders = new List<ProductDesignOrder>();
                 foreach (var item in cartItems)
                 {
@@ -117,28 +137,25 @@ namespace MerchShop.WebAPI.Controllers
                         OrderId = order.Id,
                         ProductDesignId = item.ProductDesignId,
                         Quantity = item.Quantity,
-                        PriceAtOrder = item.ProductDesign.PriceAtOrder // Цена на момент заказа
+                        PriceAtOrder = item.ProductDesign.PriceAtOrder
                     });
 
-                    // Опционально: уменьшаем количество товара на складе (ProductDesign.Quantity)
                     item.ProductDesign.Quantity -= item.Quantity;
                     _context.ProductDesigns.Update(item.ProductDesign);
                 }
                 _context.ProductDesignOrders.AddRange(productDesignOrders);
                 await _context.SaveChangesAsync();
 
-                // 7. Очищаем корзину пользователя
                 _context.CartItems.RemoveRange(cartItems);
                 await _context.SaveChangesAsync();
 
                 await transaction.CommitAsync();
 
-                // 8. Формируем ответ
                 var response = new OrderResponse
                 {
                     Id = order.Id,
                     StatusName = initialStatus.Name,
-                    PaymentMethodName = paymentMethod.Name,
+                    PaymentMethodName = (await _context.PaymentMethods.FindAsync(paymentMethodId.Value))?.Name ?? request.PaymentMethod,
                     CreationDateTime = order.CreationDateTime,
                     CompletionDateTime = order.CompletionDateTime,
                     TotalAmount = totalAmount,
@@ -149,6 +166,7 @@ namespace MerchShop.WebAPI.Controllers
                         DesignName = cartItems.FirstOrDefault(ci => ci.ProductDesignId == pdo.ProductDesignId)?.ProductDesign?.Design?.Name ?? "Неизвестный дизайн",
                         BaseColorName = cartItems.FirstOrDefault(ci => ci.ProductDesignId == pdo.ProductDesignId)?.ProductDesign?.Product?.BaseColor?.Name ?? "Неизвестный цвет",
                         PrimaryImageUrl = cartItems.FirstOrDefault(ci => ci.ProductDesignId == pdo.ProductDesignId)?.ProductDesign?.Product?.PrimaryImageUrl,
+                        DesignImageUrl = cartItems.FirstOrDefault(ci => ci.ProductDesignId == pdo.ProductDesignId)?.ProductDesign?.Design?.ImageUrl, // НОВОЕ: Передаем URL изображения дизайна
                         Quantity = pdo.Quantity,
                         PriceAtOrder = pdo.PriceAtOrder
                     }).ToList()
@@ -164,6 +182,8 @@ namespace MerchShop.WebAPI.Controllers
             catch (Exception ex)
             {
                 await transaction.RollbackAsync();
+                Console.WriteLine($"Ошибка при оформлении заказа: {ex.Message}");
+                Console.WriteLine($"Stack Trace: {ex.StackTrace}");
                 return StatusCode(500, new { message = $"Внутренняя ошибка сервера: {ex.Message}" });
             }
         }
@@ -190,7 +210,7 @@ namespace MerchShop.WebAPI.Controllers
                     .Include(o => o.ProductDesignOrders)
                         .ThenInclude(pdo => pdo.ProductDesign)
                             .ThenInclude(pd => pd.Design)
-                    .OrderByDescending(o => o.CreationDateTime) // Сортируем по дате создания
+                    .OrderByDescending(o => o.CreationDateTime)
                     .ToListAsync();
 
                 if (!orders.Any())
@@ -213,6 +233,7 @@ namespace MerchShop.WebAPI.Controllers
                         DesignName = pdo.ProductDesign.Design.Name,
                         BaseColorName = pdo.ProductDesign.Product.BaseColor.Name,
                         PrimaryImageUrl = pdo.ProductDesign.Product.PrimaryImageUrl,
+                        DesignImageUrl = pdo.ProductDesign.Design?.ImageUrl, // НОВОЕ: Передаем URL изображения дизайна
                         Quantity = pdo.Quantity,
                         PriceAtOrder = pdo.PriceAtOrder
                     }).ToList()
@@ -275,8 +296,9 @@ namespace MerchShop.WebAPI.Controllers
                         DesignName = pdo.ProductDesign.Design.Name,
                         BaseColorName = pdo.ProductDesign.Product.BaseColor.Name,
                         PrimaryImageUrl = pdo.ProductDesign.Product.PrimaryImageUrl,
+                        DesignImageUrl = pdo.ProductDesign.Design?.ImageUrl, // НОВОЕ: Передаем URL изображения дизайна
                         Quantity = pdo.Quantity,
-                        PriceAtOrder = pdo.PriceAtOrder
+                        PriceAtOrder = pdo.ProductDesign.PriceAtOrder
                     }).ToList()
                 };
 
